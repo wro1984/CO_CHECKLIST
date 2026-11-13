@@ -80,6 +80,62 @@
     return pct >= 90 ? 'bad' : pct >= 70 ? 'warn' : 'ok';
   }
 
-  const api = { nomeFrente, frentes, situacao, naJanela, fmtDuracao, fmtBytes, resumoSerie, nivelUso };
+  // ---------- atualização automática ----------
+  const INTERVALOS_S = [30, 60, 120, 300, 0];           // 0 = manual
+  const INTERVALO_PADRAO_S = 60;
+  const intervaloValido = v => { if (v == null || String(v).trim() === '') return INTERVALO_PADRAO_S; const n = Number(v); return INTERVALOS_S.includes(n) ? n : INTERVALO_PADRAO_S; };
+  /** Segundos até a próxima atualização (null = manual). `ultimo` e `agora` em ms. */
+  function segundosRestantes(ultimo, intervaloS, agora) {
+    if (!intervaloS) return null;
+    return Math.max(0, Math.ceil((ultimo + intervaloS * 1000 - agora) / 1000));
+  }
+  const fmtContagem = seg => seg == null ? 'manual' : `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`;
+
+  // ---------- eventos (alertas) ----------
+  /** {abertos, historico, dias} do dados.json ou null quando os alertas não estão ligados no MAPI. */
+  const eventosDe = d => (d && d.eventos && Array.isArray(d.eventos.abertos) && Array.isArray(d.eventos.historico)) ? d.eventos : null;
+  const minutosEntre = (a, b) => { const x = Date.parse(a), y = Date.parse(b); return isNaN(x) || isNaN(y) ? null : Math.max(0, Math.round((y - x) / 60000)); };
+  const duracaoEvento = (e, agora) => minutosEntre(e.aberto_em, e.fechado_em || new Date(agora).toISOString());
+  const diaBR = iso => { const t = Date.parse(iso); if (isNaN(t)) return ''; const d = new Date(t); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`; };
+  const horaBR = iso => { const t = Date.parse(iso); if (isNaN(t)) return '—'; const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  /** Histórico agrupado por dia (mais recente antes): [{dia: 'dd/mm', itens: [...]}]. */
+  function porDia(hist) {
+    const grupos = [], idx = {};
+    (hist || []).slice().sort((a, b) => Date.parse(b.aberto_em) - Date.parse(a.aberto_em)).forEach(e => {
+      const k = diaBR(e.aberto_em);
+      if (!(k in idx)) { idx[k] = grupos.length; grupos.push({ dia: k, itens: [] }); }
+      grupos[idx[k]].itens.push(e);
+    });
+    return grupos;
+  }
+  /** Texto do detalhe do evento com vírgula decimal (o MAPI já manda assim; aqui só por segurança). */
+  const detalhePT = t => String(t == null ? '' : t).replace(/(\d)\.(\d)/g, '$1,$2');
+  const rotuloSev = s => s === 'critico' ? 'Crítico' : 'Aviso';
+  /** Valor do evento como texto: 85,5% para regras em %, valor puro para as demais. */
+  const fmtPico = e => e.pico == null ? '—' : (['cpu', 'mem', 'disco', 'conn162', 'conn242'].includes(e.regra) ? String(Math.round(e.pico * 10) / 10).replace('.', ',') + '%' : String(e.pico));
+
+  // ---------- texto para compartilhar (WhatsApp usa *negrito*) ----------
+  function textoCompartilhar(d, agora) {
+    const n = v => v == null ? '—' : new Intl.NumberFormat('pt-BR').format(v);
+    const iso = String(d.coletado_em || '');       // hora do coletor (Brasília), como no topo do app: não depende do fuso do aparelho
+    const ln = [`*Checklist VLAN* — coleta às ${iso.slice(11, 16) || '—'} de ${iso.slice(8, 10)}/${iso.slice(5, 7)}`];
+    if (d.fila) ln.push(`Fila: ${n(d.fila.aguardando)} aguardando · ${n(d.fila.executando)} em execução`);
+    const tot = m => m && (m.TOTAL != null ? m.TOTAL : frentes(m).reduce((s, x) => s + x[1], 0));
+    if (d.execucao_frente) ln.push(`Em execução: ${n(tot(d.execucao_frente))} (` + frentes(d.execucao_frente).map(([k, v]) => `${nomeFrente(k)} ${n(v)}`).join(' · ') + ')');
+    if (d.hoje_frente) ln.push(`Hoje: ${n(tot(d.hoje_frente))} (` + frentes(d.hoje_frente).map(([k, v]) => `${nomeFrente(k)} ${n(v)}`).join(' · ') + ')');
+    if (d.rede_magic) ln.push('Rede (Magic): ' + Object.entries(d.rede_magic).map(([k, v]) => `${k} ${n(v)}`).join(' · '));
+    const h = d.hardware;
+    if (h) ln.push(`Máquina 162: CPU ${h.cpu_pct == null ? '—' : h.cpu_pct + '%'} · memória ${h.mem_pct == null ? '—' : h.mem_pct + '%'}`);
+    const b = d.bancos;
+    if (b) ln.push('Bancos: ' + [['162', b.b162], ['242', b.b242]].filter(x => x[1]).map(([k, x]) => `${k} ${n(x.total)}/${n(x.max)} conexões`).join(' · '));
+    const ev = eventosDe(d);
+    if (ev && ev.abertos.length) ln.push(`⚠️ ${ev.abertos.length} evento(s) aberto(s): ` + ev.abertos.map(e => e.nome + (e.chave ? ' ' + e.chave : '')).join(' · '));
+    else if (ev) ln.push('✅ Nenhum evento aberto');
+    return ln.join('\n');
+  }
+
+  const api = { nomeFrente, frentes, situacao, naJanela, fmtDuracao, fmtBytes, resumoSerie, nivelUso, INTERVALOS_S, INTERVALO_PADRAO_S,
+    intervaloValido, segundosRestantes, fmtContagem, eventosDe, minutosEntre, duracaoEvento, diaBR, horaBR, porDia, rotuloSev, fmtPico, detalhePT,
+    textoCompartilhar };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.CKALogica = api;
 })(typeof self !== 'undefined' ? self : globalThis);
