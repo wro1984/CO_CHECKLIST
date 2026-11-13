@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Checklist VLAN</title>
+<meta name="description" content="Fila, frentes de atividade, acertos e erros e a saúde das máquinas do Checklist VLAN.">
+<meta name="theme-color" content="#642A90">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://ura-atendimento-dados.wro-1984.workers.dev; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'none'">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+:root{
+  --roxo:#642A90; --roxo2:#8549b5; --lil:#ebe0f4; --lil2:#f6f1fa;
+  --bg:#EFEAF5; --card:#ffffff; --ink:#1f1530; --ink2:#5b5068; --ink3:#8f849e; --line:#e6e0ee;
+  --ok:#2f7a12; --okbg:#e8f5dc; --warn:#9a5b00; --warnbg:#fff1d6; --bad:#c41a60; --badbg:#fde6ef;
+  --ok2:#4aa023; --bad2:#d6336c;
+  --s1:#8549b5; --s2:#3f7fd6; --s3:#d59a12; --s4:#2f9a6a; --s5:#c65b9b; --s6:#e0572f; --s7:#1aa1b8; --s8:#7b7f12;
+  --f-body:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif; --f-num:ui-monospace,"SF Mono",Consolas,"Roboto Mono",monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#120A1A; --card:#221832; --ink:#efe9f6; --ink2:#bdb1cc; --ink3:#857a97; --line:#352849; --lil:#33244a; --lil2:#1c1329;
+  --ok:#9fd65a; --okbg:#22320f; --warn:#ffcc6b; --warnbg:#3a2a08; --bad:#ff6fa5; --badbg:#3f1226;
+  --ok2:#7cc84a; --bad2:#ff6fa5;
+  --s1:#b88ae0; --s2:#7fb0f2; --s3:#f0c04a; --s4:#62c99a; --s5:#e58cc0; --s6:#ff8a63; --s7:#4cc9de; --s8:#c9cd4a; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--f-body);min-height:100vh;display:flex;flex-direction:column}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.topo{position:sticky;top:0;z-index:2;background:linear-gradient(135deg,#52227a,var(--roxo) 60%,var(--roxo2));color:#fff;
+  padding:calc(12px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 12px max(14px,env(safe-area-inset-left,0px))}
+/* topo igual em todos os apps: voltar ao HUB à esquerda, botões do app à direita; no desktop, alinhado à coluna do conteúdo */
+.topo .row{display:flex;align-items:center;gap:10px;max-width:736px;margin:0 auto}
+.topo .t{flex:1;min-width:0}
+.topo h1{margin:0;font:700 17px/1.2 var(--f-body)}
+.topo small{display:flex;align-items:center;gap:6px;font-size:12px;opacity:.92;min-height:16px}
+.vivo{width:7px;height:7px;border-radius:50%;background:#9fe86b;flex:none}
+.vivo.parado{background:#c9c0d4}
+.ib{width:40px;height:40px;border-radius:14px;border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.14);color:#fff;display:grid;place-items:center;flex:none;cursor:pointer;text-decoration:none;padding:0}
+.ib:active{background:rgba(255,255,255,.26)}
+.ib svg{width:20px;height:20px}
+.ib:focus-visible{outline:2px solid #fff;outline-offset:2px}
+/* troca Agora / Acertos / Saúde, logo abaixo do topo */
+.seg{display:flex;max-width:736px;margin:10px auto 0;border:1px solid rgba(255,255,255,.28);border-radius:12px;padding:3px;background:rgba(255,255,255,.12);gap:3px}
+.seg button{flex:1;border:0;background:transparent;color:#fff;font:600 14px var(--f-body);padding:8px 4px;min-height:40px;border-radius:9px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--roxo)}
+.seg button:focus-visible{outline:2px solid #fff;outline-offset:1px}
+main{flex:1;width:100%;max-width:760px;margin:0 auto;padding:12px max(12px,env(safe-area-inset-left,0px)) 32px;display:flex;flex-direction:column;gap:12px}
+#conteudo{display:flex;flex-direction:column;gap:12px}
+.offline,.faixa{border-radius:12px;padding:9px 12px;font-size:13px;background:var(--warnbg);color:var(--warn)}
+.faixa.info{background:var(--lil);color:var(--ink2)}
+.sec{background:var(--card);border-radius:16px;padding:12px 12px 13px;box-shadow:0 1px 2px rgba(58,22,88,.06);display:flex;flex-direction:column;gap:8px;min-width:0}
+.sec h3{margin:0;font:700 12px/1.2 var(--f-body);letter-spacing:.07em;text-transform:uppercase;color:var(--ink2);display:flex;align-items:center;gap:6px}
+.sec h3 .tt{flex:1;min-width:0}
+.sec h4{margin:4px 0 0;font:700 13px/1.2 var(--f-body);color:var(--ink)}
+.info{border:1px solid var(--line);background:var(--card);color:var(--ink3);width:24px;height:24px;border-radius:50%;font:700 12px/1 var(--f-body);cursor:pointer;padding:0;flex:none}
+.info[aria-expanded="true"]{background:var(--roxo);border-color:var(--roxo);color:#fff}
+.info:focus-visible,.leg button:focus-visible,.chips-f button:focus-visible{outline:2px solid var(--roxo2);outline-offset:1px}
+.desc{font-size:12.5px;line-height:1.4;color:var(--ink2);background:var(--lil2);border-radius:8px;padding:8px 9px;font-weight:400;letter-spacing:0;text-transform:none}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g2.med2{gap:16px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.k{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 10px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.k .n{font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:5px}
+.k .n span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k .v{font:700 22px/1.05 var(--f-num)}
+.k .l{font-size:11.5px;color:var(--ink3);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.k.destaque{background:var(--lil2)}
+.k.destaque .v{font-size:28px}
+.k.ok .v{color:var(--ok)} .k.bad .v{color:var(--bad)}
+.barras{display:flex;flex-direction:column;gap:7px}
+.barra{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;font-size:13px}
+.barra .tr{grid-column:1/-1;height:7px;border-radius:4px;background:var(--lil2);overflow:hidden}
+.barra .tr i{display:block;height:100%;border-radius:4px}
+.barra b{font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips .c{border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-size:11.5px;color:var(--ink2);display:flex;flex-direction:column;gap:1px;min-width:84px}
+.chips .c b{font-size:16px;color:var(--ink)}
+.chips-f{display:flex;flex-wrap:wrap;gap:6px}
+.chips-f button{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink2);font:600 13px var(--f-body);border-radius:99px;padding:7px 12px;min-height:36px;cursor:pointer}
+.chips-f button[aria-pressed="true"]{background:var(--roxo);border-color:var(--roxo);color:#fff}
+svg.graf{display:block;width:100%;height:auto;cursor:pointer;touch-action:manipulation}
+svg.graf text{fill:var(--ink3);font:9px var(--f-num)}
+.leit{font:11.5px/1.45 var(--f-num);color:var(--ink2);background:var(--lil2);border-radius:8px;padding:7px 9px;min-height:32px}
+.leg{display:flex;gap:6px;flex-wrap:wrap}
+.leg button{border:1px solid var(--line);background:var(--card);color:var(--ink2);font:500 11.5px var(--f-body);border-radius:99px;padding:6px 9px;min-height:32px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.leg button[aria-pressed="false"]{opacity:.45;text-decoration:line-through}
+.leg i,.leg2 i{display:inline-block;width:12px;height:3px;border-radius:2px}
+.leg2{display:flex;gap:12px;font-size:11.5px;color:var(--ink2)}
+.leg2 span{display:inline-flex;align-items:center;gap:5px}
+.leg2 i{height:9px;width:9px;border-radius:2px}
+.toque{font-size:11.5px;color:var(--ink3)}
+.vazio{margin:0;color:var(--ink2);font-size:13px}
+/* medidores (CPU, memória, disco, conexões) */
+.med{display:flex;flex-direction:column;gap:4px;min-width:0}
+.med-t{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px}
+.med-t b{font-size:16px}
+.med .tr{height:9px;border-radius:5px;background:var(--lil2);overflow:hidden}
+.med .tr i{display:block;height:100%;border-radius:5px;background:var(--ok2)}
+.med .tr i.warn{background:var(--s3)} .med .tr i.bad{background:var(--bad2)}
+.med b.ok{color:var(--ok)} .med b.warn{color:var(--warn)} .med b.bad{color:var(--bad)}
+.med small{font-size:11.5px;color:var(--ink3)}
+.banco{display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);border-radius:12px;padding:10px}
+.bt{display:inline-flex;justify-content:center;align-items:center;min-height:44px;padding:0 18px;border-radius:12px;border:0;background:var(--roxo);color:#fff;font:600 15px var(--f-body);text-decoration:none;cursor:pointer}
+.bt:focus-visible{outline:2px solid var(--roxo2);outline-offset:2px}
+.aviso-tela{background:var(--card);border-radius:16px;padding:28px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:20px}
+.aviso-tela .ic{font-size:38px}
+.aviso-tela h2{margin:0;font:700 19px var(--f-body)}
+.aviso-tela p{margin:0 0 8px;color:var(--ink2);max-width:36ch}
+.carregando{color:var(--ink2);text-align:center;padding:40px 0}
+footer{font-size:11px;color:var(--ink3);text-align:center;padding:0 12px}
+@media (prefers-reduced-motion:no-preference){.seg button,.info,.leg button,.chips-f button{transition:background .15s,color .15s}}
+</style>
+</head>
+<body>
+<header class="topo"><div class="row">
+  <a class="ib" id="btHub" href="/" aria-label="Voltar ao HUB dos apps" title="HUB dos apps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></a>
+  <div class="t"><h1>Checklist VLAN</h1><small id="sub"></small></div>
+  <button type="button" class="ib" id="btAtualizar" aria-label="Atualizar" title="Atualizar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+</div>
+<div class="seg" id="areas" role="group" aria-label="Área" hidden>
+  <button type="button" data-area="agora" aria-pressed="true">Agora</button>
+  <button type="button" data-area="acertos" aria-pressed="false">Acertos</button>
+  <button type="button" data-area="saude" aria-pressed="false">Saúde</button>
+</div></header>
+<main>
+  <div class="offline" id="offline" hidden role="status"></div>
+  <div id="conteudo"><div class="carregando">Abrindo…</div></div>
+  <footer id="rodape"></footer>
+</main>
+<script src="config.js?v=1.0.0"></script>
+<script src="cripto.js?v=1.0.0"></script>
+<script src="logica.js?v=1.0.0"></script>
+<script src="grafico.js?v=1.0.0"></script>
+<script src="app.js?v=1.0.0"></script>
+</body>
+</html>
