@@ -1,8 +1,11 @@
 # CO_CHECKLIST — Checklist VLAN
 
-App web instalável no celular (PWA) com os KPIs do Checklist VLAN, em três áreas trocadas no topo: **Agora** (fila, em execução,
+App web instalável no celular (PWA) com os KPIs do Checklist VLAN, em quatro áreas trocadas no topo: **Agora** (fila, em execução,
 aguardando e hoje por frente, rede do Magic), **Acertos** (acertos e erros por frente em blocos de 15 min nas últimas 24 h e o
-acompanhamento do dia) e **Saúde** (conexões dos bancos 162 e 242; CPU, memória, tempo ligada, carga e discos da máquina da API).
+acompanhamento do dia), **Saúde** (conexões dos bancos 162 e 242; CPU, memória, tempo ligada, carga e discos da máquina da API) e
+**Eventos** (alertas abertos e histórico de 7 dias). Tem atualização automática com contador (30 s, 1, 2, 5 min ou manual; padrão 1 min,
+escolha guardada no aparelho), **sino** (aviso no celular quando algo sai do normal e quando volta) e **compartilhar** uma imagem
+(WhatsApp, Teams) da tela ou do resumo completo.
 Publicado pelo GitHub Pages em <https://wro1984.github.io/CO_CHECKLIST/> a partir da branch `main`. **Todo push na `main` vai
 para o ar em cerca de 1 minuto**, para todos os usuários.
 
@@ -24,6 +27,9 @@ Linux 162 (coletor, cron) ──► PostgreSQL .242 ──► MAPI (checklist_ap
   `connect-src` da CSP no `index.html` (o teste confere) e o `CHECKLIST_APP_CF_URL` do MAPI.
 - **Não há chave própria**: o app abre com a credencial que o HUB dos apps (<https://wro1984.github.io/>) guardou no IndexedDB
   `co-hub-acesso` deste endereço. Quem vê o app é definido no perfil do HUB (app `checklist`).
+- **Alertas:** quem avalia as regras (CPU, memória, disco, conexões dos bancos, reinício da máquina, coletor) é o MAPI (`checklist_alertas.py`);
+  o app só mostra os `eventos` que vêm no `dados.json` (7 dias) e entrega o sino. Sem `eventos` no pacote (alertas desligados no MAPI), a aba
+  Eventos avisa que ainda não estão ligados.
 - O MAPI manda também a `programacao` do coletor e o `limite_atraso_s`: com eles o app diz "dados atrasados", "fora do horário" ou
   "coleta desligada". **O app não recalcula nenhum KPI.**
 
@@ -42,11 +48,22 @@ Linux 162 (coletor, cron) ──► PostgreSQL .242 ──► MAPI (checklist_ap
 4. **O service worker (`sw.js`) só mexe no que é deste app**: caches que começam com `co-checklist-v` e pedidos dentro de
    `/CO_CHECKLIST/`. Outros apps moram no mesmo endereço; apagar o cache deles quebra o offline de todo mundo. O `dados.json` vem de
    outro endereço (Worker): o próprio `app.js` guarda a cópia cifrada no cache `co-checklist-dados` e a apaga se o acesso se perder.
-5. **Não carregar nada de fora**: sem CDNs, fontes externas, analytics (o `index.html` tem CSP `default-src 'self'`). A única exceção
-   é o `connect-src` do Worker dos dados.
-6. **Cota da Cloudflare** (conta gratuita, ~100 mil chamadas por dia somando os Workers): o app confere o `dados.json` a cada **2 min**
-   com a tela aberta (`CONFERIR_MS` em `app.js`), porque o coletor grava a cada 5 min. Não diminua sem fazer a conta.
-7. Acesso perdido (sem o app no perfil, chave do HUB trocada): o app apaga a cópia cifrada dos dados e mostra "Sem acesso".
+5. **Não carregar nada de fora**: sem CDNs, fontes externas, analytics (o `index.html` tem CSP `default-src 'self'`). As únicas exceções são
+   o `connect-src` do Worker dos dados e o da **caixa de entrada** dos avisos (a mesma do Problemas Sistêmicos, `CAIXA` em `push.js`: o app só
+   manda para lá a inscrição de push). Trocou a caixa? Mude `push.js` e a CSP juntos (o teste confere).
+6. **Cota da Cloudflare** (conta gratuita, ~100 mil chamadas por dia somando os Workers): o app confere o `dados.json` no intervalo escolhido
+   (`INTERVALOS_S` em `logica.js`: 30 s, 1, 2, 5 min ou manual; padrão 1 min) e só com a tela visível. Conta: pessoas × 3600 ÷ intervalo × horas de tela
+   aberta (50 pessoas × 10 h: 1 min = 30 mil por dia; 30 s = 60 mil). Não ponha intervalo menor que 30 s nem faça o padrão menor que 1 min sem refazer a conta.
+7. Acesso perdido (sem o app no perfil, chave do HUB trocada): o app apaga a cópia cifrada dos dados, desfaz a inscrição de aviso deste aparelho e
+   mostra "Sem acesso".
+8. **A prova da inscrição de aviso** (`macInscricao` em `push.js`) = HMAC-SHA256 do segredo de aviso do HUB sobre
+   `"checklist\n" + endpoint + "\n" + p256dh + "\n" + auth`, igual a `checklist_app.mac_inscricao` no MAPI. O prefixo `checklist` separa das provas do
+   Problemas Sistêmicos e do COE (mesmo segredo): não tire. O pacote traz `push:{chave}` (chave pública VAPID) e, no acesso, `tk:{iv, ct}` (o segredo,
+   cifrado com a chave do HUB). Erro neles só esconde o sino.
+9. **Eixo do tempo dos gráficos = horário real.** O coletor só manda os blocos de 15 min COM execução; `grafico.js` posiciona cada bloco pela hora
+   (janela de 24 h = 96 blocos, terminando no último bloco recebido) e completa com zero os que faltam no acompanhamento. Não volte a espaçar por posição.
+10. **A imagem de compartilhar leva só números já abertos na tela** (nada de matrícula, login ou texto de consulta; o teste confere). Sai em tema claro,
+    1080 px de largura lógica e escala 2 (2160 px).
 
 ## Formato do JSON aberto (o que a tela usa)
 
@@ -61,8 +78,10 @@ limite_atraso_s}`. Um bloco que falhou na coleta vem `null` (e o nome em `parcia
 | Quero mudar… | Onde |
 |---|---|
 | Cores, tamanhos, modo escuro | `<style>` no `index.html` (variáveis em `:root`) |
-| Cards de cada área, textos do ⓘ | `telaAgora()`, `telaAcertos()`, `telaSaude()` e `INFO` em `app.js` |
-| Nome e ordem das frentes, aviso de atraso, formatos | `logica.js` |
+| Cards de cada área, textos do ⓘ | `telaAgora()`, `telaAcertos()`, `telaSaude()`, `telaEventos()` e `INFO` em `app.js` |
+| Nome e ordem das frentes, aviso de atraso, intervalos da atualização, eventos, texto do compartilhar | `logica.js` |
+| Imagem de compartilhar (blocos, cores, tamanho) | `cartao.js` (`montar()` faz o plano, `renderizar()` desenha no canvas) |
+| Sino (aviso no celular) | `sino()` / `alternarSino()` em `app.js`, `push.js`, eventos `push` no `sw.js` |
 | Gráficos (escala, colunas, linhas, toque) | `grafico.js` (contas) e `colunasSvg()` / `telaAcompanhamento()` em `app.js` |
 | Intervalo de conferência | `CONFERIR_MS` em `app.js` |
 | **Quais números vêm, de onde, regras de cada consulta** | **não é aqui**: é o coletor (`agente_linux/` do MAPI) e o `checklist_app.py` |
@@ -92,9 +111,11 @@ em `tests/cripto.test.js`) e responda o pedido do `dados.json` com o `pacote` da
 | Arquivo | Papel |
 |---|---|
 | `index.html` | estrutura, estilos (paleta da empresa, modo escuro), CSP, troca Agora / Acertos / Saúde |
-| `app.js` | telas, ⓘ de cada card, gráficos com toque; conferência a cada 2 minutos |
-| `logica.js` | regras de apresentação (frentes, atraso, formatos); roda também no Node |
-| `grafico.js` | contas dos gráficos (escala, colunas, linhas, toque); roda também no Node |
+| `app.js` | telas, ⓘ de cada card, gráficos com toque; atualização automática com contador; sino; folha de compartilhar |
+| `logica.js` | regras de apresentação (frentes, atraso, intervalos, eventos, texto do compartilhar); roda também no Node |
+| `cartao.js` | imagem de compartilhar: plano de desenho (roda no Node, testado) e desenho no canvas |
+| `push.js` | inscrição de aviso no celular e entrega à caixa de entrada |
+| `grafico.js` | contas dos gráficos (escala, colunas por horário real, linhas, toque); roda também no Node |
 | `cripto.js` | lê a credencial do HUB e abre o `dados.json` |
 | `config.js` | endereço do `dados.json` (Worker) |
 | `sw.js` | cache offline só deste app |

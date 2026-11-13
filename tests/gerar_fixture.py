@@ -69,15 +69,36 @@ snapshot = {
                                           {"ponto": "/data", "total": 107374182400, "usado": 98784247808, "pct": 92.0}]},
     "parciais": {},
 }
+def ev(uid, regra, nome, sev, aberto, fechado, valor, pico, limite, detalhe, chave=""):
+    return {"id": uid, "regra": regra, "chave": chave, "nome": nome, "sev": sev, "valor": valor, "pico": pico, "limite": limite,
+            "detalhe": detalhe, "aberto_em": aberto.astimezone(timezone.utc).isoformat(), "fechado_em": fechado.astimezone(timezone.utc).isoformat() if fechado else None}
+
+
+H = timedelta(hours=1)
+EVENTOS = {"dias": 7, "abertos": [
+    ev("a1", "mem", "Memória da máquina alta", "aviso", AGORA - 25 * timedelta(minutes=1), None, 82.1, 84.0, 80, "82,1%"),
+    ev("a2", "disco", "Disco cheio", "critico", AGORA - 3 * H, None, 96.0, 96.0, 95, "/data a 96%", "/data")],
+    "historico": [
+    ev("h1", "cpu", "CPU da máquina alta", "critico", AGORA - 6 * H, AGORA - 5 * H - 20 * timedelta(minutes=1), 97.0, 99.0, 95, "97%"),
+    ev("h2", "coletor", "Coletor de dados", "critico", AGORA - 26 * H, AGORA - 25 * H - 40 * timedelta(minutes=1), 2, 2, 2, "Coletor da 162 sem sinal há 9 min"),
+    ev("h3", "reinicio", "Máquina da 162 reiniciada", "aviso", AGORA - 30 * H, AGORA - 30 * H, 540, 540, None, "ligada há 9 min"),
+    ev("h4", "conn242", "Conexões do banco 242", "aviso", AGORA - 50 * H, AGORA - 49 * H, 82.0, 85.5, 80, "340 de 400 conexões (85%)")]}
 prog = {"ativo": True, "intervalo_min": 5, "hora_inicio": "00:00", "hora_fim": "23:59"}
 snap = {"id": 412, "coletado_em": AGORA, "duracao_ms": 4820, "versao_agente": "1.0.0", "host": "h", "dados": snapshot}
 
 salt = os.urandom(16)
-pessoa = {"matricula": MAT, "salt": salt, "chave": hub.chave_do_codigo(CHAVE, salt), "push_secret": None}
+segredo = os.urandom(32)                       # segredo de aviso (push) inventado, vai cifrado em `tk`
+pessoa = {"matricula": MAT, "salt": salt, "chave": hub.chave_do_codigo(CHAVE, salt), "push_secret": segredo}
 conteudo = json.loads(json.dumps(checklist_app.montar_conteudo(snap, prog), default=str))
-pacote = checklist_app.montar_pacote(conteudo, [pessoa])
+conteudo["eventos"] = EVENTOS
+VAPID = "BEXEMPLO-chave-publica-inventada"
+pacote = checklist_app.montar_pacote(conteudo, [pessoa], VAPID)
+# prova de uma inscrição inventada, calculada pelo MAPI: o app tem que chegar no mesmo valor
+insc = {"endpoint": "https://fcm.googleapis.com/fcm/send/exemplo", "p256dh": "B" + "x" * 86, "auth": "y" * 22}
 saida = {"hub": {"matricula": MAT, "chave": CHAVE, "salt": base64.b64encode(salt).decode(), "iter": hub.ITERACOES},
-         "pacote": pacote, "esperado": conteudo}
+         "pacote": pacote, "esperado": conteudo,
+         "push": {"chave": VAPID, "segredo": base64.b64encode(segredo).decode(), "inscricao": insc,
+                  "mac": checklist_app.mac_inscricao(segredo, insc["endpoint"], insc["p256dh"], insc["auth"])}}
 destino = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "pacote.json")
 with open(destino, "w", encoding="utf-8") as f:
     json.dump(saida, f, ensure_ascii=False, indent=1)

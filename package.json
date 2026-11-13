@@ -2,6 +2,6 @@
   "name": "co-checklist",
   "private": true,
   "scripts": {
-    "test": "node --test tests/cripto.test.js tests/grafico.test.js tests/logica.test.js tests/versao.test.js"
+    "test": "node --test tests/cripto.test.js tests/grafico.test.js tests/logica.test.js tests/cartao.test.js tests/push.test.js tests/versao.test.js"
   }
 }

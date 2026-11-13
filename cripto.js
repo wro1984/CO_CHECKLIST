@@ -9,13 +9,16 @@
  *                                                        ct = a chave dos dados, cifrada (AES-GCM) com a chave do HUB
  *    dados: {iv, ct}}                                    o JSON dos KPIs, cifrado (AES-GCM 256) com a chave dos dados
  *
+ * Opcionais, para o aviso no celular (push.js): `push:{chave}` (chave pública VAPID, não é segredo) e, no acesso, `tk:{iv, ct}` = o
+ * segredo de aviso do HUB da pessoa, cifrado com a chave do HUB. Erro neles só desliga o sino.
+ *
  * A chave dos dados muda a cada publicação. Quem perde o app no perfil do HUB some de `hub.acessos` e deixa de abrir os
  * dados novos. Este app só LÊ a credencial do HUB: nunca apaga nem copia (sair de todos os apps é no HUB).
  */
 (function (root) {
   'use strict';
 
-  const VERSAO = '1.0.0';
+  const VERSAO = '1.1.0';
   const C = (root.crypto && root.crypto.subtle) ? root.crypto : null;
   const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 
@@ -65,6 +68,18 @@
     catch (e) { throw erro('corrompido', 'Os dados publicados estão em formato desconhecido.'); }
   }
 
-  const api = { VERSAO, abrir, lerCredHub, conferePacote };
+  // segredo de aviso e chave pública para o push (ou nulls): nunca impede de ver os números
+  async function extrasPush(pacote, cred) {
+    const a = pacote && pacote.hub && pacote.hub.acessos && pacote.hub.acessos[cred.id];
+    const chave = pacote && pacote.push && typeof pacote.push.chave === 'string' ? pacote.push.chave : null;
+    let segredo = null;
+    if (C && a && a.tk && typeof a.tk.iv === 'string' && typeof a.tk.ct === 'string') {
+      try { segredo = new Uint8Array(await C.subtle.decrypt({ name: 'AES-GCM', iv: b64(a.tk.iv) }, cred.chave, b64(a.tk.ct))); }
+      catch (e) { segredo = null; }
+    }
+    return { chave, segredo };
+  }
+
+  const api = { VERSAO, abrir, lerCredHub, conferePacote, extrasPush };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.CKACripto = api;
 })(typeof self !== 'undefined' ? self : globalThis);
