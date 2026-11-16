@@ -1,20 +1,22 @@
-/* Checklist VLAN — imagem para compartilhar (WhatsApp, Teams...).
+/* Serviços — imagem para compartilhar (WhatsApp, Teams...).
  *
  * montar(dados, opcoes) devolve um PLANO de desenho (sem DOM, roda no Node nos testes): {w, h, cmds}. renderizar(canvas, plano, escala)
  * executa o plano num <canvas>. A imagem é sempre em tema claro (lê bem em qualquer conversa) e leva 1080 px de largura lógica; com
  * escala 2 sai com 2160 px, nítida mesmo ampliada. Só números já abertos na tela: nada de login, matrícula ou texto de SQL.
  *
- * opcoes: {area: 'agora' | 'acertos' | 'saude' | 'eventos' | 'completo', frente, agora (ms)}.
+ * opcoes: {area: 'agora' | 'acertos' | 'saude' | 'eventos' | 'magic' | 'manobra' | 'completo', frente, agora (ms)}.
  */
 (function (root) {
   'use strict';
 
   const L = root.CKALogica || (typeof require !== 'undefined' ? require('./logica.js') : null);
   const G = root.CKAGrafico || (typeof require !== 'undefined' ? require('./grafico.js') : null);
+  const S = root.CKAServicos || (typeof require !== 'undefined' ? require('./servicos.js') : null);
 
   const W = 1080, M = 40, CW = W - 2 * M;                 // largura, margem e largura útil
   const COR = { bg: '#EFEAF5', card: '#ffffff', ink: '#1f1530', ink2: '#5b5068', ink3: '#8f849e', line: '#e6e0ee', lil: '#f6f1fa', roxo: '#642A90',
     ok: '#2f7a12', ok2: '#4aa023', warn: '#9a5b00', warn2: '#d59a12', bad: '#c41a60', bad2: '#d6336c',
+    hum: '#8549b5', rob: '#FF9901',
     s: ['#8549b5', '#3f7fd6', '#d59a12', '#2f9a6a', '#c65b9b', '#e0572f', '#1aa1b8', '#7b7f12'] };
   const FONTE = '"Segoe UI", system-ui, -apple-system, Roboto, sans-serif';
   const NUM = 'ui-monospace, "SF Mono", Consolas, "Roboto Mono", monospace';
@@ -35,7 +37,7 @@
   // ---------- blocos ----------
   function cabecalho(p, d, titulo) {
     p.rect(0, 0, W, 150, { fill: COR.roxo });
-    p.text('Checklist VLAN', M, 62, { size: 44, weight: 700, fill: '#fff' });
+    p.text('Serviços', M, 62, { size: 44, weight: 700, fill: '#fff' });
     const iso = String(d.coletado_em || '');
     p.text(`${titulo}  ·  coleta às ${iso.slice(11, 16) || '—'} de ${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`, M, 112, { size: 27, fill: '#e8dcf3' });
     p.y = 190;
@@ -167,6 +169,74 @@
     });
   }
 
+  // ---------- Manobra (hoje) e Magic ----------
+  const ddmm = iso => (iso || '').length >= 10 ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '—';
+  const tempo = seg => seg == null ? '—' : seg < 60 ? `${seg} s` : L.fmtDuracao(seg);
+  const nsTxt = f => f.ns == null ? '—' : pct(100 * f.ns);
+
+  function areaManobra(p, d) {
+    const X = S.manobra(d.manobra_hoje);
+    if (!X) return secao(p, 'Manobra · hoje', 160, (x, y) => indisponivel(p, x, y));
+    secao(p, `Manobra · hoje ${ddmm(X.dia)}`, 84 + 128 + 130 + 150, (x, y, w) => {
+      kpis(p, x, y, w, [{ nome: `Total · NS ${X.corte} min`, valor: nsTxt(X.t), legenda: `${nf(X.t.vol)} solic.`, destaque: true },
+        { nome: 'Humano', valor: nsTxt(X.h), legenda: `${nf(X.h.vol)} solic.` }, { nome: 'Robô', valor: nsTxt(X.r), legenda: `${nf(X.r.vol)} solic.` }]);
+      const yb = y + 160;
+      if (X.partes.h != null) {
+        p.rect(x, yb, w, 18, { r: 9, fill: COR.lil });
+        p.rect(x, yb, Math.max(18, w * X.partes.h), 18, { r: 9, fill: COR.hum });
+        if (X.partes.r > 0.02) p.rect(x + w * X.partes.h, yb, w * X.partes.r, 18, { r: 9, fill: COR.rob });
+        p.text(`Humano ${pct(100 * X.partes.h)}`, x, yb + 54, { size: 23, fill: COR.ink2 });
+        p.text(`Robô ${pct(100 * X.partes.r)} das solicitações`, x + w, yb + 54, { size: 23, fill: COR.ink2, align: 'right' });
+      }
+      const ya = yb + 100;
+      p.text(`Atendidas: humano ${nf(X.h.at)} · robô ${nf(X.r.at)}  (em ${X.corte} min: ${nf(X.h.cor)} · ${nf(X.r.cor)})`, x, ya, { size: 24, fill: COR.ink2, maxW: w });
+      p.text(`Aguardando agora: humano ${nf(X.pendentes.h)} · robô ${nf(X.pendentes.r)}  ·  espera mais antiga ${tempo(Math.max(X.espera_max_s.h || 0, X.espera_max_s.r || 0) || null)}`, x, ya + 40, { size: 24, fill: COR.ink2, maxW: w });
+    });
+    const pontos = S.manobraPontos(d.manobra_hoje);
+    if (pontos.length) secao(p, 'Solicitações por bloco de 15 min', 84 + 330 + 90, (x, y, w) => {
+      const g = G.colunas(pontos, w, 310);
+      g.grade.forEach(l => { p.line(x + g.x0, y + l.y, x + g.x1, y + l.y); p.text(l.v, x + g.x0 - 8, y + l.y + 8, { size: 19, fill: COR.ink3, align: 'right', num: true }); });
+      g.barras.forEach(b => {
+        if (b.ha > 0) p.rect(x + b.x, y + b.ya, b.larg, b.ha, { fill: COR.hum });
+        if (b.he > 0) p.rect(x + b.x, y + b.ye, b.larg, b.he, { fill: COR.rob });
+      });
+      g.marcas.forEach(m => p.text(m.hh, x + m.x, y + g.y0 + 30, { size: 20, fill: COR.ink3, align: 'center' }));
+      p.rect(x, y + 330, 20, 20, { r: 4, fill: COR.hum }); p.text('Humano', x + 30, y + 348, { size: 22, fill: COR.ink2 });
+      p.rect(x + 170, y + 330, 20, 20, { r: 4, fill: COR.rob }); p.text('Robô', x + 200, y + 348, { size: 22, fill: COR.ink2 });
+    });
+  }
+
+  function linhasMagic(p, x, y, w, mapa, itens) {                // grade de números (2 por linha)
+    const gap = 18, cw = (w - gap) / 2;
+    itens.forEach(([chave, nome, destaque], i) => {
+      const cx = x + (i % 2) * (cw + gap), cy = y + Math.floor(i / 2) * 110;
+      p.rect(cx, cy, cw, 94, { r: 16, fill: destaque ? COR.lil : '#fff', stroke: COR.line });
+      p.text(nome, cx + 20, cy + 34, { size: 22, fill: COR.ink2, maxW: cw - 40 });
+      p.text(nf(mapa[chave]), cx + 20, cy + 76, { size: 40, weight: 700, num: true, maxW: cw - 40 });
+    });
+    return Math.ceil(itens.length / 2) * 110;
+  }
+
+  const MAGIC_ITENS = {
+    vlan: ['VLAN · hoje', [['CORRIGIDO', 'Corrigido'], ['SEM_FALHAS', 'Sem falhas'], ['FALHA_EXECUCAO', 'Falha na execução'], ['TOTAL', 'Total', true]]],
+    psa: ['PSA · hoje', [['CARGA_CORRIGIDA', 'Carga corrigida'], ['CARGA_OK', 'Carga OK'], ['FALHA_AO_VALIDAR_CARGA', 'Falha ao validar carga'], ['ATIVIDADE_INEXISTENTE', 'Atividade inexistente'],
+      ['ATIVIDADE_NAO_INFORMADA', 'Atividade não informada'], ['WIFI_BLOQUEADO', 'Wifi bloqueado'], ['TOTAL', 'Total', true]]],
+    tv: ['TV · hoje', [['CORRIGIDO', 'Corrigido'], ['SEM_FALHAS', 'Sem falhas'], ['NAO_DIGITOU_ATIVIDADE', 'Não digitou atividade'], ['TOTAL', 'Total', true]]]
+  };
+
+  function areaMagic(p, d) {
+    ['vlan', 'psa', 'tv'].forEach(k => {
+      const [titulo, itens] = MAGIC_ITENS[k], m = d['magic_' + k];
+      secao(p, titulo, m ? 84 + Math.ceil(itens.length / 2) * 110 + 20 : 160, (x, y, w) => m ? linhasMagic(p, x, y, w, m, itens) : indisponivel(p, x, y));
+    });
+    const hs = [['vlan', 'VLAN'], ['psa', 'PSA'], ['tv', 'TV']].filter(([k]) => d['magic_' + k + '_hist']);
+    if (hs.length) secao(p, 'Comparativo do dia (até agora)', 84 + hs.length * 130 + 20, (x, y, w) => hs.forEach(([k, nome], i) => {
+      const cmp = S.comparativo(d['magic_' + k + '_hist'], null, d.coletado_em), yy = y + i * 130;
+      p.text(nome, x, yy + 26, { size: 27, weight: 700 });
+      p.text(cmp.map(c => `${c.nome.toLowerCase()} ${nf(c.total)}${c.difPct == null ? '' : ` (${c.difPct > 0 ? '+' : ''}${pct(c.difPct)})`}`).join('  ·  '), x, yy + 66, { size: 22, fill: COR.ink2, maxW: w });
+    }));
+  }
+
   function areaEventos(p, d, agora) {
     const ev = L.eventosDe(d);
     if (!ev) return secao(p, 'Eventos', 160, (x, y) => indisponivel(p, x, y, 'Os alertas ainda não estão ligados.'));
@@ -188,7 +258,7 @@
     }));
   }
 
-  const TITULOS = { agora: 'Agora', acertos: 'Acertos e erros', saude: 'Saúde', eventos: 'Eventos', completo: 'Resumo completo' };
+  const TITULOS = { agora: 'Agora', acertos: 'Acertos e erros', saude: 'Saúde', eventos: 'Eventos', magic: 'Magic', manobra: 'Manobra · hoje', completo: 'Resumo completo' };
 
   function montar(d, opcoes) {
     opcoes = opcoes || {};
@@ -203,10 +273,12 @@
       p.y += 90;
     }
     if (area === 'agora' || area === 'completo') areaAgora(p, d);
+    if (area === 'manobra' || area === 'completo') areaManobra(p, d);
+    if (area === 'magic' || area === 'completo') areaMagic(p, d);
     if (area === 'eventos' || area === 'completo') areaEventos(p, d, agora);
     if (area === 'acertos') areaAcertos(p, d, opcoes.frente);
     if (area === 'saude' || area === 'completo') areaSaude(p, d);
-    p.text('Checklist VLAN · gerado pelo app, a partir da última coleta', W / 2, p.y + 14, { size: 20, fill: COR.ink3, align: 'center' });
+    p.text('Serviços · gerado pelo app, a partir da última coleta', W / 2, p.y + 14, { size: 20, fill: COR.ink3, align: 'center' });
     const h = p.y + 50;
     p.cmds.unshift({ t: 'rect', x: 0, y: 0, w: W, h, r: 0, fill: COR.bg, stroke: null });
     return { w: W, h, cmds: p.cmds, area };

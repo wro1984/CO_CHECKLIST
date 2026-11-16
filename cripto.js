@@ -18,7 +18,7 @@
 (function (root) {
   'use strict';
 
-  const VERSAO = '1.1.0';
+  const VERSAO = '1.2.0';
   const C = (root.crypto && root.crypto.subtle) ? root.crypto : null;
   const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 

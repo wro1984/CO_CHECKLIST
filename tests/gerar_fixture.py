@@ -53,6 +53,32 @@ for t in blocos(datetime(2026, 11, 12, 0, 0), datetime(2026, 11, 12, 15, 0)):
     v = [rnd.randint(0, 18), rnd.randint(0, 3), 0, rnd.randint(0, 25), rnd.randint(0, 6), rnd.randint(10, 60), rnd.randint(0, 9), 0]
     linhas.append([iso(t), sum(v)] + v)
 
+# aba Magic (números inventados): hoje e o histórico por período e categoria, em blocos de 15 min (0..95)
+def hist_inventado(cats, escala):
+    out = {}
+    for periodo, ate in (("HOJE", 60), ("D7", 95), ("D14", 95), ("D21", 95)):
+        out[periodo] = {}
+        for c, fator in cats:
+            out[periodo][c] = [[b, max(1, int(escala * fator * rnd.uniform(0.3, 1.2)))] for b in range(28, ate + 1) if rnd.random() < 0.8]
+    return out
+
+
+MAGIC = {
+    "magic_vlan": {"CORRIGIDO": 412, "SEM_FALHAS": 1290, "FALHA_EXECUCAO": 87, "TOTAL": 1830},
+    "magic_psa": {"CARGA_CORRIGIDA": 220, "CARGA_OK": 940, "FALHA_AO_VALIDAR_CARGA": 31, "ATIVIDADE_INEXISTENTE": 54, "ATIVIDADE_NAO_INFORMADA": 12,
+                  "WIFI_BLOQUEADO": 48, "TOTAL": 1305},
+    "magic_tv": {"CORRIGIDO": 130, "SEM_FALHAS": 610, "NAO_DIGITOU_ATIVIDADE": 9, "TOTAL": 760},
+    "magic_vlan_hist": hist_inventado([("Corrigido", 0.25), ("Sem falhas", 1.0), ("Falha na execução", 0.06), ("Outros", 0.05)], 12),
+    "magic_psa_hist": hist_inventado([("Carga OK", 1.0), ("Carga Corrigida", 0.3), ("Falha na correção", 0.05), ("Outros", 0.04)], 10),
+    "magic_tv_hist": hist_inventado([("Corrigido", 0.25), ("Sem falhas", 1.0), ("Outros", 0.02)], 6),
+}
+
+# Manobra de hoje (inventada): o MAPI monta isto lendo o .242 (ns_manobra.hoje); aqui o bloco já vem pronto
+MANOBRA_HOJE = {"v": 1, "dia": "2026-11-12", "gerado_em": "2026-11-12T15:05:00", "corte_min": 5,
+                "h": [412, 380, 291], "r": [1180, 1176, 1170],
+                "espera_media_s": {"h": 142, "r": 9}, "pendentes": {"h": 3, "r": 0}, "espera_max_s": {"h": 410, "r": 0},
+                "serie": [["%02d:%02d" % (b // 4, (b % 4) * 15), rnd.randint(2, 20), 0, 0, rnd.randint(10, 60), 0, 0] for b in range(28, 61)]}
+
 snapshot = {
     "v": 1, "coletado_em": AGORA.isoformat(timespec="seconds"),
     "fila": {"aguardando": 1, "executando": 37},
@@ -69,6 +95,9 @@ snapshot = {
                                           {"ponto": "/data", "total": 107374182400, "usado": 98784247808, "pct": 92.0}]},
     "parciais": {},
 }
+snapshot.update(MAGIC)
+
+
 def ev(uid, regra, nome, sev, aberto, fechado, valor, pico, limite, detalhe, chave=""):
     return {"id": uid, "regra": regra, "chave": chave, "nome": nome, "sev": sev, "valor": valor, "pico": pico, "limite": limite,
             "detalhe": detalhe, "aberto_em": aberto.astimezone(timezone.utc).isoformat(), "fechado_em": fechado.astimezone(timezone.utc).isoformat() if fechado else None}
@@ -91,6 +120,7 @@ segredo = os.urandom(32)                       # segredo de aviso (push) inventa
 pessoa = {"matricula": MAT, "salt": salt, "chave": hub.chave_do_codigo(CHAVE, salt), "push_secret": segredo}
 conteudo = json.loads(json.dumps(checklist_app.montar_conteudo(snap, prog), default=str))
 conteudo["eventos"] = EVENTOS
+conteudo["manobra_hoje"] = MANOBRA_HOJE
 VAPID = "BEXEMPLO-chave-publica-inventada"
 pacote = checklist_app.montar_pacote(conteudo, [pessoa], VAPID)
 # prova de uma inscrição inventada, calculada pelo MAPI: o app tem que chegar no mesmo valor

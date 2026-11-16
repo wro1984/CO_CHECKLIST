@@ -1,9 +1,11 @@
-# CO_CHECKLIST — Checklist VLAN
+# CO_CHECKLIST — Serviços (antes "Checklist VLAN")
 
-App web instalável no celular (PWA) com os KPIs do Checklist VLAN, em quatro áreas trocadas no topo: **Agora** (fila, em execução,
+O app se chama **Serviços** desde a v1.2.0 (HUB, título, manifest, aviso do sino, imagem de compartilhar). Repositório, `app:"co-checklist"`, chave `checklist` do HUB, caches (`co-checklist-v*`) e ids seguem os nomes antigos: mudar quebra o acesso e os avisos de todo mundo.
+
+App web instalável no celular (PWA) com os KPIs do Checklist VLAN, do Magic e da Manobra de hoje, em seis áreas trocadas no topo: **Agora** (fila, em execução,
 aguardando e hoje por frente, rede do Magic), **Acertos** (acertos e erros por frente em blocos de 15 min nas últimas 24 h e o
 acompanhamento do dia), **Saúde** (conexões dos bancos 162 e 242; CPU, memória, tempo ligada, carga e discos da máquina da API) e
-**Eventos** (alertas abertos e histórico de 7 dias). Tem atualização automática com contador (30 s, 1, 2, 5 min ou manual; padrão 1 min,
+**Eventos** (alertas abertos e histórico de 7 dias), **Magic** (VLAN, PSA e TV de hoje e o comparativo com D-7, D-14 e D-21; blocos `magic_*` do `dados.json`, vindos do coletor da 162) e **Manobra** (o dia de hoje por frente: humano, robô e total; bloco `manobra_hoje`, que o MAPI lê no .242 ao publicar; as contas de soma e NS estão em `servicos.js`). Tem atualização automática com contador (30 s, 1, 2, 5 min ou manual; padrão 1 min,
 escolha guardada no aparelho), **sino** (aviso no celular quando algo sai do normal e quando volta) e **compartilhar** uma imagem
 (WhatsApp, Teams) da tela ou do resumo completo.
 Publicado pelo GitHub Pages em <https://wro1984.github.io/CO_CHECKLIST/> a partir da branch `main`. **Todo push na `main` vai
@@ -79,6 +81,7 @@ limite_atraso_s}`. Um bloco que falhou na coleta vem `null` (e o nome em `parcia
 |---|---|
 | Cores, tamanhos, modo escuro | `<style>` no `index.html` (variáveis em `:root`) |
 | Cards de cada área, textos do ⓘ | `telaAgora()`, `telaAcertos()`, `telaSaude()`, `telaEventos()` e `INFO` em `app.js` |
+| Abas Magic e Manobra (telas) | `telaMagic()`, `telaManobra()` em `app.js`; contas em `servicos.js`; imagem de compartilhar: `areaMagic()`/`areaManobra()` em `cartao.js` |
 | Nome e ordem das frentes, aviso de atraso, intervalos da atualização, eventos, texto do compartilhar | `logica.js` |
 | Imagem de compartilhar (blocos, cores, tamanho) | `cartao.js` (`montar()` faz o plano, `renderizar()` desenha no canvas) |
 | Sino (aviso no celular) | `sino()` / `alternarSino()` em `app.js`, `push.js`, eventos `push` no `sw.js` |
@@ -112,6 +115,7 @@ em `tests/cripto.test.js`) e responda o pedido do `dados.json` com o `pacote` da
 |---|---|
 | `index.html` | estrutura, estilos (paleta da empresa, modo escuro), CSP, troca Agora / Acertos / Saúde |
 | `app.js` | telas, ⓘ de cada card, gráficos com toque; atualização automática com contador; sino; folha de compartilhar |
+| `servicos.js` | contas das abas Magic e Manobra (soma humano + robô, NS, comparativo D-7/14/21 até a mesma hora); roda também no Node |
 | `logica.js` | regras de apresentação (frentes, atraso, intervalos, eventos, texto do compartilhar); roda também no Node |
 | `cartao.js` | imagem de compartilhar: plano de desenho (roda no Node, testado) e desenho no canvas |
 | `push.js` | inscrição de aviso no celular e entrega à caixa de entrada |

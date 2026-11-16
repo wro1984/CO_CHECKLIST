@@ -1,11 +1,12 @@
-/* Checklist VLAN — telas.
+/* Serviços — telas.
  *
  * Fluxo: credencial do HUB neste aparelho -> baixa o dados.json (sempre da rede; cópia cifrada no cache para abrir sem
  * rede) -> abre com cripto.js -> desenha. Confere de novo a cada 2 minutos com o app aberto e ao voltar para ele (o
  * coletor grava a cada 5 min). Nada aberto é guardado no aparelho: só o dados.json cifrado.
  *
- * Quatro áreas, trocadas no topo: Agora (fila e frentes), Acertos (acertos e erros por frente, acompanhamento do dia), Saúde
- * (bancos e máquina da API) e Eventos (alertas abertos e histórico de 7 dias). O sino liga o aviso no celular (push.js) e o botão
+ * Seis áreas, trocadas no topo: Agora (fila e frentes do Checklist VLAN), Acertos (acertos e erros por frente, acompanhamento do dia), Saúde
+ * (bancos e máquina da API), Eventos (alertas abertos e histórico de 7 dias), Magic (VLAN, PSA e TV de hoje e o comparativo com os dias
+ * anteriores) e Manobra (o dia de hoje por frente: humano, robô e os dois juntos). O sino liga o aviso no celular (push.js) e o botão
  * de compartilhar gera uma imagem (cartao.js) para o WhatsApp e o Teams. A atualização é automática, no intervalo que a pessoa
  * escolher (padrão 1 min), com contador. Os números vêm prontos do MAPI/coletor: este app só apresenta. Um bloco que falhou na
  * coleta não vem (nome em `parciais`) e aparece como indisponível; o resto segue.
@@ -13,13 +14,13 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '1.1.0';
+  const APP_VERSION = '1.2.0';
   const CHAVE_AUTO = 'co-checklist-auto';          // intervalo escolhido neste aparelho (segundos; 0 = manual)
   const MARCA_PUSH = 'co-checklist-push';          // última inscrição entregue ao MAPI (localStorage): não reenviar à toa
   const HUB_URL = new URL('/', location.href).href;
   const CACHE_DADOS = 'co-checklist-dados';        // última cópia (CIFRADA) do dados.json, para abrir sem rede
 
-  const G = window.CKAGrafico, K = window.CKACripto, L = window.CKALogica, P = window.CKAPush, C = window.CKACartao;
+  const G = window.CKAGrafico, K = window.CKACripto, L = window.CKALogica, P = window.CKAPush, C = window.CKACartao, S = window.CKAServicos;
   const BASE = (function () {
     const b = String((window.CKA_CONFIG && window.CKA_CONFIG.dados) || '').trim();
     if (!b) return '';
@@ -37,7 +38,7 @@
   let dados = null, cred = null, gerado = null, pushCtx = null;
   let area = 'agora';
   const abertos = {};                      // ⓘ abertos (sobrevivem ao redesenho)
-  const ESTADO = { frente: null, serieSel: null, acompOff: {}, acompSel: null, acompIni: false };
+  const ESTADO = { frente: null, serieSel: null, acompOff: {}, acompSel: null, acompIni: false, mgFrente: 'vlan', mgCat: null, mgSel: null, manSel: null };
 
   const INFO = {
     fila: 'Checklists na fila agora: os que aguardam para começar e os que estão em execução.',
@@ -49,6 +50,12 @@
     acomp: 'Execuções do dia por frente, em blocos de 15 min (conta tudo do dia, não só as finalizadas). Toque no gráfico para ver o horário; toque na legenda para esconder uma linha.',
     banco: 'Conexões abertas agora no banco e o limite. A divisão entre ativas e ociosas só aparece quando o usuário de leitura enxerga todas as sessões.',
     eventos: 'Um evento abre quando uma medida (CPU, memória, disco, conexões dos bancos, situação do coletor) fica acima do limite por algumas coletas seguidas, e fecha quando volta ao normal. O histórico guarda os últimos 7 dias. Quem liga o sino recebe aviso na abertura e quando volta ao normal.',
+    manobra: 'A Manobra de hoje, direto do banco de operação, com a mesma regra do NS: o dia é o da solicitação; "em N min" são as atendidas em até N minutos; NS = em N min ÷ atendidas. Humano = atendimento de uma pessoa; robô = automação. "Aguardando agora" são as solicitações de hoje ainda sem atribuição.',
+    manobra_serie: 'Solicitações de hoje por bloco de 15 min, empilhadas (humano embaixo, robô em cima). Toque numa coluna para ver o horário.',
+    mg_vlan: 'Execuções do Magic de hoje (VLAN) por resultado: corrigido, sem falhas ou falha na execução. O total conta também as demais (duplicado, já registrado).',
+    mg_psa: 'Validações de carga do PSA de hoje, por situação (as mesmas contas do dashboard MAGIC do Grafana). Um mesmo registro pode contar em mais de uma linha.',
+    mg_tv: 'Validações de TV de hoje: corrigido, sem falhas e quem não digitou a atividade.',
+    mg_comp: 'Compara hoje com o mesmo dia da semana, 7, 14 e 21 dias atrás, em blocos de 15 min. A tabela soma cada dia só até a hora de agora, para a comparação ser justa. Escolha a frente e a categoria acima.',
     maquina: 'CPU e memória medidos na própria máquina da API (memória = 1 − disponível ÷ total). Verde abaixo de 70%, amarelo a partir de 70%, vermelho a partir de 90%.'
   };
 
@@ -81,7 +88,7 @@
   async function carregar() {
     cred = await K.lerCredHub();
     if (!cred) { dados = null; pushCtx = null; sino(); await apagarCopia(); return telaAviso('Entre pelo HUB',
-      'Este app abre com o login do HUB dos apps. Entre no HUB com sua matrícula e chave e toque no atalho do Checklist VLAN.', true); }
+      'Este app abre com o login do HUB dos apps. Entre no HUB com sua matrícula e chave e toque no atalho do Serviços.', true); }
     let pacote;
     try { pacote = await baixar(); }
     catch (e) {
@@ -236,6 +243,119 @@
     return sec('Acompanhamento do dia', 'acomp', `${lista}${svg}${leg}${leit}`);
   }
 
+  // ---------- Manobra (hoje) ----------
+  const hojeISO = () => { const d = new Date(), p = v => String(v).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+  const ddmm = iso => (iso || '').length >= 10 ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '—';
+  const tempo = seg => seg == null ? '—' : seg < 60 ? `${seg} s` : L.fmtDuracao(seg);
+
+  // colunas empilhadas (humano embaixo, robô em cima) reaproveitando G.colunas: [bloco, humano, robô]
+  function colunasManobra(pontos) {
+    const w = 340, h = 150, g = G.colunas(pontos, w, h), sel = ESTADO.manSel;
+    const op = b => (sel == null || sel === b.slot ? 1 : 0.45);
+    return `<svg class="graf" id="graf-man" viewBox="0 0 ${w} ${h}" role="img" aria-label="Solicitações da Manobra por bloco de 15 minutos, humano e robô">
+      ${g.grade.map(l => `<line x1="${g.x0}" x2="${g.x1}" y1="${l.y.toFixed(1)}" y2="${l.y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/><text x="${g.x0 - 3}" y="${(l.y + 3).toFixed(1)}" text-anchor="end">${l.v}</text>`).join('')}
+      ${g.barras.map(b => `<rect x="${b.x.toFixed(1)}" y="${b.ya.toFixed(1)}" width="${b.larg.toFixed(1)}" height="${Math.max(0, b.ha).toFixed(1)}" fill="var(--hum)" opacity="${op(b)}"/>
+        <rect x="${b.x.toFixed(1)}" y="${b.ye.toFixed(1)}" width="${b.larg.toFixed(1)}" height="${Math.max(0, b.he).toFixed(1)}" fill="var(--rob)" opacity="${op(b)}"/>`).join('')}
+      ${sel != null ? `<line x1="${(g.x0 + g.slot * (sel + 0.5)).toFixed(1)}" x2="${(g.x0 + g.slot * (sel + 0.5)).toFixed(1)}" y1="${g.y1}" y2="${g.y0}" stroke="var(--ink3)" stroke-dasharray="3 3"/>` : ''}
+      ${g.marcas.map(m => `<text x="${m.x.toFixed(1)}" y="${g.y0 + 11}" text-anchor="middle">${m.hh}</text>`).join('')}
+    </svg>`;
+  }
+
+  function leituraManobra(pontos) {
+    if (ESTADO.manSel == null) return '<span class="toque">Toque numa coluna para ver o horário.</span>';
+    const g = G.colunas(pontos, 340, 150), b = g.barras.find(x => x.slot === ESTADO.manSel), hh = g.horaDoSlot(ESTADO.manSel);
+    return b ? `<b>${esc(hh)}</b> · humano ${esc(n(pontos[b.i][1]))} · robô ${esc(n(pontos[b.i][2]))}` : `<b>${esc(hh)}</b> · sem solicitações neste bloco`;
+  }
+
+  function telaManobra(d) {
+    const X = S.manobra(d.manobra_hoje);
+    if (!X) return sec('Manobra · hoje', 'manobra', indisp('manobra_hoje', d));
+    const hoje = S.ehDeHoje(d.manobra_hoje, hojeISO());
+    const aviso = hoje ? '' : `<div class="faixa" role="status">Estes números são de ${esc(ddmm(X.dia))}: ainda não há leitura de hoje.</div>`;
+    const corte = X.corte;
+    const linha = (rot, fn, cls) => `<div class="r ${cls || ''}">${esc(rot)}</div>` + ['t', 'h', 'r'].map(k => `<div class="c ${cls || ''}">${fn(X[k], k)}</div>`).join('');
+    const nsTxt = f => f.ns == null ? '—' : pct(100 * f.ns);
+    const pend = k => `${esc(n(X.pendentes[k]))}`;
+    const barra = X.partes.h == null ? '' : `<div class="fr-bar" role="img" aria-label="Humano ${esc(pct(100 * X.partes.h))} e robô ${esc(pct(100 * X.partes.r))} das solicitações"><span class="h" style="width:${(X.partes.h * 100).toFixed(2)}%"></span><span class="r" style="width:${(X.partes.r * 100).toFixed(2)}%"></span></div>
+      <div class="fr-leg"><span><i class="h"></i>Humano ${esc(pct(100 * X.partes.h))}</span><span><i class="r"></i>Robô ${esc(pct(100 * X.partes.r))}</span><small>das solicitações</small></div>`;
+    const grade = `<div class="fr-grid" role="table" aria-label="Total, humano e robô"><div></div>${['Total', 'Humano', 'Robô'].map((t, i) => `<div class="h ${['tot', 'hum', 'rob'][i]}">${t}</div>`).join('')}
+      ${linha(`NS ${corte} min`, f => `<b>${esc(nsTxt(f))}</b>`, 'ns')}${linha('Solicitações', f => esc(n(f.vol)))}${linha('Atendidas', f => esc(n(f.at)))}${linha(`Em ${corte} min`, f => esc(n(f.cor)))}
+      <div class="r">Espera média</div><div class="c">${esc(tempo(X.espera.h != null || X.espera.r != null ? Math.round(((X.espera.h || 0) * X.h.at + (X.espera.r || 0) * X.r.at) / Math.max(1, X.t.at)) : null))}</div><div class="c">${esc(tempo(X.espera.h))}</div><div class="c">${esc(tempo(X.espera.r))}</div>
+      <div class="r">Aguardando agora</div><div class="c">${esc(n(X.pendentes.h + X.pendentes.r))}</div><div class="c">${pend('h')}</div><div class="c">${pend('r')}</div>
+      <div class="r">Espera mais antiga</div><div class="c">${esc(tempo(Math.max(X.espera_max_s.h || 0, X.espera_max_s.r || 0) || null))}</div><div class="c">${esc(tempo(X.espera_max_s.h || null))}</div><div class="c">${esc(tempo(X.espera_max_s.r || null))}</div></div>`;
+    const out = [aviso];
+    out.push(sec(`Manobra · hoje ${ddmm(X.dia)}`, 'manobra', `<div class="sub-man">Lido às ${esc(horaDe(X.gerado_em))} no banco de operação</div>${barra}${grade}`));
+    const pontos = S.manobraPontos(d.manobra_hoje);
+    out.push(sec('Solicitações por bloco de 15 min', 'manobra_serie', pontos.length
+      ? `${colunasManobra(pontos)}<div class="leg2"><span><i style="background:var(--hum)"></i>Humano</span><span><i style="background:var(--rob)"></i>Robô</span></div><div class="leit" id="leit-man">${leituraManobra(pontos)}</div>`
+      : '<p class="vazio">Nenhuma solicitação hoje.</p>'));
+    return out.join('');
+  }
+
+  // ---------- Magic ----------
+  const COR_PERIODO = { HOJE: '--s1', D7: '--s2', D14: '--s3', D21: '--s4' };
+
+  function kpisHoje(mapa, itens) {
+    const tot = mapa.TOTAL != null ? mapa.TOTAL : null;
+    return `<div class="g2">${itens.map(([chave, nome, cls]) => {
+      const v = mapa[chave];
+      const leg = chave === 'TOTAL' || v == null || !tot ? '' : `${esc(pct(S.parteDoTotal(v, tot)))} do total`;
+      return kpi(nome, n(v), leg, cls || (chave === 'TOTAL' ? 'destaque' : ''));
+    }).join('')}</div>`;
+  }
+
+  function graficoMagic(hist, cat, iso) {
+    const w = 340, h = 150, rot = S.rotulosSlots();
+    const series = S.seriesLinhas(hist, cat, iso);
+    const g = G.linhas(rot, series, {}, w, h), sel = ESTADO.mgSel;
+    const eixo = rot.map((t, i) => ({ i, t })).filter(x => /^(00|04|08|12|16|20):00$/.test(x.t));
+    return `<svg class="graf" id="graf-mg" viewBox="0 0 ${w} ${h}" role="img" aria-label="Comparativo do dia por bloco de 15 minutos">
+      ${g.grade.map(l => `<line x1="${g.x0}" x2="${g.x1}" y1="${l.y.toFixed(1)}" y2="${l.y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/><text x="${g.x0 - 3}" y="${(l.y + 3).toFixed(1)}" text-anchor="end">${l.v}</text>`).join('')}
+      ${g.linhas.slice().reverse().map(l => `<polyline points="${l.pontos}" fill="none" stroke="var(${COR_PERIODO[l.k]})" stroke-width="${l.k === 'HOJE' ? 2.6 : 1.5}" stroke-linejoin="round" stroke-linecap="round"${l.k === 'HOJE' ? '' : ' opacity=".8"'}/>`).join('')}
+      ${sel != null ? `<line x1="${g.X(sel).toFixed(1)}" x2="${g.X(sel).toFixed(1)}" y1="${g.y1}" y2="${g.y0}" stroke="var(--ink3)" stroke-dasharray="3 3"/>` : ''}
+      ${eixo.map(x => `<text x="${g.X(x.i).toFixed(1)}" y="${g.y0 + 11}" text-anchor="middle">${x.t.slice(0, 2)}h</text>`).join('')}
+    </svg>`;
+  }
+
+  function leituraMagic(hist, cat) {
+    if (ESTADO.mgSel == null) return '<span class="toque">Toque no gráfico para ver o horário.</span>';
+    const rot = S.rotulosSlots()[ESTADO.mgSel];
+    const partes = S.PERIODOS.filter(p => hist[p]).map(p => `${esc(S.NOME_PERIODO[p].toLowerCase())} ${esc(n(S.vetor(hist, p, cat)[ESTADO.mgSel]))}`);
+    return `<b>${esc(rot)}</b> · ${partes.join(' · ')}`;
+  }
+
+  function secComparativo(d) {
+    const nomeF = Object.fromEntries(S.FRENTES_MAGIC);
+    const f = ESTADO.mgFrente;
+    const hist = d['magic_' + f + '_hist'];
+    const chipsF = `<div class="chips-f" role="group" aria-label="Frente do Magic">${S.FRENTES_MAGIC.map(([k, nome]) => `<button type="button" data-mgf="${k}" aria-pressed="${k === f}">${esc(nome)}</button>`).join('')}</div>`;
+    if (!hist) return sec('Comparativo do dia', 'mg_comp', `${chipsF}${indisp('magic_' + f + '_hist', d)}`);
+    const cats = S.categorias(hist);
+    if (ESTADO.mgCat && !cats.includes(ESTADO.mgCat)) ESTADO.mgCat = null;
+    const cat = ESTADO.mgCat;
+    const chipsC = cats.length > 1 ? `<div class="chips-f" role="group" aria-label="Categoria"><button type="button" data-mgc="" aria-pressed="${cat == null}">Todas</button>${cats.map((c, i) => `<button type="button" data-mgc="${i}" aria-pressed="${c === cat}">${esc(c)}</button>`).join('')}</div>` : '';
+    const cmp = S.comparativo(hist, cat, d.coletado_em);
+        const linhas = cmp.map(x => `<tr><td><i class="pt" style="background:var(${COR_PERIODO[x.periodo]})"></i>${esc(x.nome)}</td><td class="num">${esc(n(x.total))}</td><td class="num">${x.difPct == null ? '—' : esc((x.difPct > 0 ? '+' : '') + pct(x.difPct))}</td></tr>`).join('');
+    const leg = `<div class="leg2">${S.PERIODOS.filter(p => hist[p]).map(p => `<span><i style="background:var(${COR_PERIODO[p]})"></i>${esc(S.NOME_PERIODO[p])}</span>`).join('')}</div>`;
+    const corpo = `${chipsF}${chipsC}${graficoMagic(hist, cat, d.coletado_em)}${leg}<div class="leit" id="leit-mg">${leituraMagic(hist, cat)}</div>
+      <table class="mtab"><thead><tr><th>Até as ${esc(horaBloco(S.slotAgora(d.coletado_em)))}</th><th>Total</th><th>Hoje vs dia</th></tr></thead><tbody>${linhas}</tbody></table>`;
+    return sec(`Comparativo do dia · ${nomeF[f]}`, 'mg_comp', corpo);
+  }
+
+  // fim do bloco de 15 min de agora (a comparação conta cada dia até aqui)
+  const horaBloco = s => { if (s == null) return '—'; const m = Math.min(1439, (s + 1) * 15); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+
+  function telaMagic(d) {
+    const out = [];
+    const v = d.magic_vlan, p = d.magic_psa, t = d.magic_tv;
+    out.push(sec('VLAN · hoje', 'mg_vlan', v ? kpisHoje(v, [['CORRIGIDO', 'Corrigido', 'ok'], ['SEM_FALHAS', 'Sem falhas'], ['FALHA_EXECUCAO', 'Falha na execução', v.FALHA_EXECUCAO > 0 ? 'bad' : ''], ['TOTAL', 'Total']]) : indisp('magic_vlan', d)));
+    out.push(sec('PSA · hoje', 'mg_psa', p ? kpisHoje(p, [['CARGA_CORRIGIDA', 'Carga corrigida', 'ok'], ['CARGA_OK', 'Carga OK'], ['FALHA_AO_VALIDAR_CARGA', 'Falha ao validar carga', p.FALHA_AO_VALIDAR_CARGA > 0 ? 'bad' : ''],
+      ['ATIVIDADE_INEXISTENTE', 'Atividade inexistente'], ['ATIVIDADE_NAO_INFORMADA', 'Atividade não informada'], ['WIFI_BLOQUEADO', 'Wifi bloqueado'], ['TOTAL', 'Total']]) : indisp('magic_psa', d)));
+    out.push(sec('TV · hoje', 'mg_tv', t ? kpisHoje(t, [['CORRIGIDO', 'Corrigido', 'ok'], ['SEM_FALHAS', 'Sem falhas'], ['NAO_DIGITOU_ATIVIDADE', 'Não digitou atividade'], ['TOTAL', 'Total']]) : indisp('magic_tv', d)));
+    out.push(secComparativo(d));
+    return out.join('');
+  }
+
   // ---------- Saúde ----------
   function medidor(nome, valor, legenda) {
     const nv = L.nivelUso(valor);
@@ -319,7 +439,7 @@
     const falhas = d.parciais && Object.keys(d.parciais).length
       ? `<div class="faixa" role="status">Alguns números não vieram nesta coleta: ${Object.keys(d.parciais).map(esc).join(', ')}.</div>` : '';
     const y = window.scrollY;
-    $('conteudo').innerHTML = faixa + (area === 'agora' ? falhas : '') + (area === 'agora' ? telaAgora(d) : area === 'acertos' ? telaAcertos(d) : area === 'eventos' ? telaEventos(d) : telaSaude(d));
+    $('conteudo').innerHTML = faixa + (area === 'agora' ? falhas : '') + (area === 'agora' ? telaAgora(d) : area === 'acertos' ? telaAcertos(d) : area === 'eventos' ? telaEventos(d) : area === 'magic' ? telaMagic(d) : area === 'manobra' ? telaManobra(d) : telaSaude(d));
     window.scrollTo(0, y);
     $('rodape').textContent = `v${APP_VERSION}` + (cred && cred.matricula ? ` · entrou pelo HUB (${cred.matricula})` : '');
   }
@@ -331,6 +451,24 @@
     if (fr) { ESTADO.frente = fr.dataset.frente; ESTADO.serieSel = null; desenhar(); return; }
     const ac = ev.target.closest('[data-acomp]');
     if (ac) { const k = ac.dataset.acomp; ESTADO.acompOff[k] = !ESTADO.acompOff[k]; desenhar(); return; }
+    const mf = ev.target.closest('[data-mgf]');
+    if (mf) { ESTADO.mgFrente = mf.dataset.mgf; ESTADO.mgCat = null; ESTADO.mgSel = null; desenhar(); return; }
+    const mc = ev.target.closest('[data-mgc]');
+    if (mc) {
+      const hist = dados && dados['magic_' + ESTADO.mgFrente + '_hist'];
+      ESTADO.mgCat = mc.dataset.mgc === '' || !hist ? null : (S.categorias(hist)[Number(mc.dataset.mgc)] || null);
+      desenhar();
+      return;
+    }
+    const gm = ev.target.closest('#graf-mg');
+    if (gm) { const r = gm.getBoundingClientRect(), x = (ev.clientX - r.left) / r.width * 340; ESTADO.mgSel = Math.max(0, Math.min(95, Math.round((x - 30) / (334 - 30) * 95))); desenhar(); return; }
+    const gn = ev.target.closest('#graf-man');
+    if (gn && dados && dados.manobra_hoje) {
+      const r = gn.getBoundingClientRect();
+      ESTADO.manSel = G.colunas(S.manobraPontos(dados.manobra_hoje), 340, 150).slotDoToque((ev.clientX - r.left) / r.width * 340);
+      desenhar();
+      return;
+    }
     const gs = ev.target.closest('#graf-serie');
     if (gs && dados && dados.series && dados.series[ESTADO.frente]) {
       const r = gs.getBoundingClientRect();
@@ -422,7 +560,7 @@
     const area = FC.conteudo === 'completo' ? 'completo' : area_();
     return C.montar(dados, { area, frente: ESTADO.frente, agora: Date.now() });
   }
-  const area_ = () => area === 'agora' || area === 'acertos' || area === 'saude' || area === 'eventos' ? area : 'agora';
+  const area_ = () => ['agora', 'acertos', 'saude', 'eventos', 'magic', 'manobra'].includes(area) ? area : 'agora';
 
   async function gerarImagem() {
     $('fcMsg').textContent = 'Gerando a imagem…';
@@ -437,7 +575,7 @@
     $('fcMsg').textContent = blob ? 'No celular, toque em Compartilhar imagem e escolha o WhatsApp ou o Teams. No computador, use os botões do WhatsApp e do Teams (a imagem é copiada: cole com Ctrl+V na conversa).' : 'Não consegui gerar a imagem neste aparelho.';
   }
 
-  const arquivo = () => new File([FC.blob], `checklist-vlan-${Date.now()}.png`, { type: 'image/png' });
+  const arquivo = () => new File([FC.blob], `servicos-${Date.now()}.png`, { type: 'image/png' });
 
   async function copiarImagem() {
     try {
@@ -450,9 +588,9 @@
     if (!FC.blob) return;
     const f = arquivo();
     try {
-      if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: 'Checklist VLAN', text: FC.texto }); return; }
+      if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: 'Serviços', text: FC.texto }); return; }
     } catch (e) { if (e && e.name === 'AbortError') return; }
-    try { if (navigator.share) { await navigator.share({ title: 'Checklist VLAN', text: FC.texto }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { if (navigator.share) { await navigator.share({ title: 'Serviços', text: FC.texto }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
     $('fcMsg').textContent = 'Este aparelho não compartilha imagem direto: use Copiar imagem ou Baixar.';
   }
 
@@ -469,7 +607,7 @@
   function baixarImagem() {
     if (!FC.url) return;
     const a = document.createElement('a');
-    a.href = FC.url; a.download = `checklist-vlan-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.png`;
+    a.href = FC.url; a.download = `servicos-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.png`;
     document.body.appendChild(a); a.click(); a.remove();
   }
 

@@ -120,7 +120,7 @@ test('texto para compartilhar: hora do coletor, números e eventos', () => {
     hardware: { cpu_pct: 24.7, mem_pct: 40.2 }, bancos: { b162: { total: 31, max: 100 }, b242: null },
     eventos: { dias: 7, abertos: [{ nome: 'Memória da máquina alta', chave: '' }, { nome: 'Disco cheio', chave: '/data' }], historico: [] } };
   const t = L.textoCompartilhar(d, Date.now());
-  assert.ok(t.startsWith('*Checklist VLAN* — coleta às 15:05 de 12/11'));                  // fatia do texto: não depende do fuso do aparelho
+  assert.ok(t.startsWith('*Serviços* — coleta às 15:05 de 12/11'));                  // fatia do texto: não depende do fuso do aparelho
   for (const x of ['Fila: 1 aguardando · 37 em execução', 'Em execução: 37 (Triagem 2 · Magic 20)', 'Hoje: 8.375', 'VIVO1 2.632', 'CPU 24.7%', '162 31/100 conexões',
     '⚠️ 2 evento(s) aberto(s): Memória da máquina alta · Disco cheio /data']) assert.ok(t.includes(x), x);
   assert.ok(L.textoCompartilhar(Object.assign({}, d, { eventos: { dias: 7, abertos: [], historico: [] } }), 0).includes('✅ Nenhum evento aberto'));

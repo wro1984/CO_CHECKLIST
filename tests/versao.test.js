@@ -12,15 +12,15 @@ test('versões iguais', () => {
   assert.strictEqual(ler('sw.js').match(/VERSION = '([^']+)'/)[1], app);
   assert.strictEqual(ler('push.js').match(/VERSAO = '([^']+)'/)[1], app);
   const vs = [...ler('index.html').matchAll(/\?v=([0-9.]+)/g)].map(m => m[1]);
-  assert.ok(vs.length >= 7);
+  assert.ok(vs.length >= 8);
   vs.forEach(v => assert.strictEqual(v, app));
 });
 
 test('todo arquivo do app está no CORE do service worker', () => {
   const core = ler('sw.js');
-  for (const f of ['index.html', 'app.js', 'cripto.js', 'logica.js', 'grafico.js', 'cartao.js', 'push.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'])
+  for (const f of ['index.html', 'app.js', 'cripto.js', 'servicos.js', 'logica.js', 'grafico.js', 'cartao.js', 'push.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'])
     assert.ok(core.includes(`'${f}'`), f);
-  for (const f of ['config.js', 'cripto.js', 'logica.js', 'grafico.js', 'cartao.js', 'push.js', 'app.js']) assert.ok(ler('index.html').includes(`src="${f}?v=`), f);
+  for (const f of ['config.js', 'cripto.js', 'servicos.js', 'logica.js', 'grafico.js', 'cartao.js', 'push.js', 'app.js']) assert.ok(ler('index.html').includes(`src="${f}?v=`), f);
 });
 
 test('nada carregado de fora e o endereço dos dados bate com a CSP', () => {
