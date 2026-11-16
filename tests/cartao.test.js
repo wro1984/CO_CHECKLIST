@@ -9,17 +9,17 @@ const AGORA = Date.parse('2026-11-12T15:08:00-03:00');
 const textos = p => p.cmds.filter(c => c.t === 'text').map(c => c.txt);
 
 test('cada área gera um plano com a largura fixa e fundo', () => {
-  for (const area of ['agora', 'acertos', 'saude', 'eventos', 'completo']) {
+  for (const area of ['agora', 'acertos', 'saude', 'eventos', 'magic', 'manobra', 'completo']) {
     const p = C.montar(fx, { area, frente: 'MAGIC', agora: AGORA });
     assert.strictEqual(p.w, 1080, area);
     assert.ok(p.h > 300, area);
     assert.deepStrictEqual([p.cmds[0].t, p.cmds[0].w, p.cmds[0].h], ['rect', 1080, p.h], area);          // fundo cobre tudo
-    assert.ok(textos(p).includes('Checklist VLAN'), area);
+    assert.ok(textos(p).includes('Serviços'), area);
   }
 });
 
 test('nada desenhado fora da imagem', () => {
-  for (const area of ['agora', 'acertos', 'saude', 'eventos', 'completo']) {
+  for (const area of ['agora', 'acertos', 'saude', 'eventos', 'magic', 'manobra', 'completo']) {
     const p = C.montar(fx, { area, frente: 'TRIAGEM', agora: AGORA });
     for (const c of p.cmds) {
       if (c.t === 'rect') assert.ok(c.x >= 0 && c.y >= 0 && c.x + c.w <= 1080.5 && c.y + c.h <= p.h + 0.5, `${area}: ${JSON.stringify(c)}`);
@@ -59,7 +59,7 @@ test('alertas desligados e blocos ausentes não quebram', () => {
   const sem = Object.assign({}, fx); delete sem.eventos;
   assert.match(textos(C.montar(sem, { area: 'eventos', agora: AGORA })).join('|'), /alertas ainda não estão ligados/);
   const vazio = { coletado_em: fx.coletado_em, programacao: fx.programacao, limite_atraso_s: fx.limite_atraso_s };
-  for (const area of ['agora', 'acertos', 'saude', 'eventos', 'completo']) assert.ok(C.montar(vazio, { area, agora: AGORA }).h > 200, area);
+  for (const area of ['agora', 'acertos', 'saude', 'eventos', 'magic', 'manobra', 'completo']) assert.ok(C.montar(vazio, { area, agora: AGORA }).h > 200, area);
 });
 
 test('dados atrasados aparecem na imagem', () => {
@@ -88,4 +88,26 @@ test('renderizar executa o plano num canvas simulado', () => {
   assert.strictEqual(cv.height, plano.h * 2);
   assert.ok(chamadas.some(c => c[0] === 'fillText'));
   assert.ok(chamadas.some(c => c[0] === 'setTransform' && c[1][0] === 2));
+});
+
+test('Manobra e Magic: levam humano, robô e os totais do dia', () => {
+  const m = textos(C.montar(fx, { area: 'manobra', agora: AGORA })).join('|');
+  assert.match(m, /Manobra · hoje 12\/11/i);
+  assert.match(m, /Humano/);
+  assert.match(m, /Robô/);
+  assert.match(m, /Aguardando agora: humano 3 · robô 0/);
+  const g = textos(C.montar(fx, { area: 'magic', agora: AGORA })).join('|');
+  assert.match(g, /VLAN · hoje/i);
+  assert.match(g, /PSA · hoje/i);
+  assert.match(g, /TV · hoje/i);
+  assert.match(g, /Comparativo do dia/i);
+  assert.match(g, /1\.830/);                                                       // total da VLAN
+});
+
+test('Manobra e Magic sem dado: aviso em vez de quebrar', () => {
+  const sem = Object.assign({}, fx, { manobra_hoje: null, magic_vlan: null, magic_psa: null, magic_tv: null, magic_vlan_hist: null, magic_psa_hist: null, magic_tv_hist: null });
+  for (const area of ['manobra', 'magic']) {
+    const p = C.montar(sem, { area, agora: AGORA });
+    assert.ok(textos(p).some(t => /Indisponível nesta coleta/.test(t)), area);
+  }
 });

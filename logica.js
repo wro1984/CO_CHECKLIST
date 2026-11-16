@@ -14,6 +14,7 @@
   };
   const ORDEM = ['TRIAGEM', 'MANOBRA', 'ENRIQUECIMENTO', 'MAGIC', 'CO', 'TEL', 'TEL_ICOMON', 'CO_SISTEMICO', 'MONITORAMENTO', 'REGIONAL', 'RAV'];
 
+  const S = root.CKAServicos || (typeof require !== 'undefined' ? require('./servicos.js') : null);
   const nomeFrente = k => NOMES[k] || String(k).toLowerCase().replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
 
   // [[chave, valor]] sem o TOTAL, na ordem das frentes conhecidas e depois as demais pelo maior valor
@@ -118,7 +119,7 @@
   function textoCompartilhar(d, agora) {
     const n = v => v == null ? '—' : new Intl.NumberFormat('pt-BR').format(v);
     const iso = String(d.coletado_em || '');       // hora do coletor (Brasília), como no topo do app: não depende do fuso do aparelho
-    const ln = [`*Checklist VLAN* — coleta às ${iso.slice(11, 16) || '—'} de ${iso.slice(8, 10)}/${iso.slice(5, 7)}`];
+    const ln = [`*Serviços* — coleta às ${iso.slice(11, 16) || '—'} de ${iso.slice(8, 10)}/${iso.slice(5, 7)}`];
     if (d.fila) ln.push(`Fila: ${n(d.fila.aguardando)} aguardando · ${n(d.fila.executando)} em execução`);
     const tot = m => m && (m.TOTAL != null ? m.TOTAL : frentes(m).reduce((s, x) => s + x[1], 0));
     if (d.execucao_frente) ln.push(`Em execução: ${n(tot(d.execucao_frente))} (` + frentes(d.execucao_frente).map(([k, v]) => `${nomeFrente(k)} ${n(v)}`).join(' · ') + ')');
@@ -128,6 +129,13 @@
     if (h) ln.push(`Máquina 162: CPU ${h.cpu_pct == null ? '—' : h.cpu_pct + '%'} · memória ${h.mem_pct == null ? '—' : h.mem_pct + '%'}`);
     const b = d.bancos;
     if (b) ln.push('Bancos: ' + [['162', b.b162], ['242', b.b242]].filter(x => x[1]).map(([k, x]) => `${k} ${n(x.total)}/${n(x.max)} conexões`).join(' · '));
+    const X = S && S.manobra(d.manobra_hoje);
+    if (X) {
+      const p1 = f => f.ns == null ? '—' : String(Math.round(1000 * f.ns) / 10).replace('.', ',') + '%';
+      ln.push(`Manobra hoje: NS ${p1(X.t)} (${n(X.t.vol)} solic.) · humano ${p1(X.h)} (${n(X.h.vol)}) · robô ${p1(X.r)} (${n(X.r.vol)}) · aguardando ${n(X.pendentes.h + X.pendentes.r)}`);
+    }
+    const mg = [['VLAN', d.magic_vlan], ['PSA', d.magic_psa], ['TV', d.magic_tv]].filter(x => x[1] && x[1].TOTAL != null);
+    if (mg.length) ln.push('Magic hoje: ' + mg.map(([k, v]) => `${k} ${n(v.TOTAL)}`).join(' · '));
     const ev = eventosDe(d);
     if (ev && ev.abertos.length) ln.push(`⚠️ ${ev.abertos.length} evento(s) aberto(s): ` + ev.abertos.map(e => e.nome + (e.chave ? ' ' + e.chave : '')).join(' · '));
     else if (ev) ln.push('✅ Nenhum evento aberto');

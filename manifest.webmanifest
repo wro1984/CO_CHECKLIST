@@ -1,7 +1,7 @@
 {
-  "name": "Checklist VLAN",
-  "short_name": "Checklist",
-  "description": "Fila, frentes de atividade, acertos e erros e a saúde das máquinas do Checklist VLAN.",
+  "name": "Serviços",
+  "short_name": "Serviços",
+  "description": "Fila, frentes de atividade, acertos e erros e a saúde das máquinas; Magic e Manobra de hoje.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

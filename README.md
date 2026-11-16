@@ -1,4 +1,4 @@
-# CO_CHECKLIST — Checklist VLAN
+# CO_CHECKLIST — Serviços (antes Checklist VLAN)
 
 App web instalável no celular (PWA) com os KPIs do **Checklist VLAN**, atualizados a cada 5 minutos: fila, frentes de atividade,
 acertos e erros, acompanhamento do dia, saúde dos bancos e da máquina da API e **eventos anormais** (com aviso no celular). Atualização
