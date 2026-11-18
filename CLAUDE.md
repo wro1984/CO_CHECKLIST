@@ -125,3 +125,12 @@ em `tests/cripto.test.js`) e responda o pedido do `dados.json` com o `pacote` da
 | `sw.js` | cache offline só deste app |
 | `manifest.webmanifest`, `icons/` | instalação no celular |
 | `tests/` | criptografia (pacote do MAPI), regras, gráficos, versões e CSP |
+
+
+## Modo MAPI (desde a v1.3.0)
+
+Dentro do **HUB de Apps do MAPI** o app abre num quadro com `?mapi` na URL (`MODO_MAPI` em `app.js`): não lê a credencial do HUB, não baixa o
+`dados.json`, não registra service worker e não guarda nada no aparelho. Avisa `co-checklist:pronto` (só o aviso) e o MAPI responde
+`co-checklist:dados` com o conteúdo já aberto (`{dados}` ou `{erro}`); só vale a mensagem da janela pai. Cada atualização automática repete o pedido.
+Fora de um quadro, `?mapi` não muda nada (o login do HUB continua obrigatório). O MAPI só entrega os dados a quem tem o app liberado na matrícula.
+Não mude os nomes das mensagens sem mudar `hub_embed.py` do MAPI junto. Testes: `tests/modo_mapi.test.js`.

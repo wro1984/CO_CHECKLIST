@@ -14,10 +14,12 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '1.2.0';
+  const APP_VERSION = '1.3.0';
   const CHAVE_AUTO = 'co-checklist-auto';          // intervalo escolhido neste aparelho (segundos; 0 = manual)
   const MARCA_PUSH = 'co-checklist-push';          // última inscrição entregue ao MAPI (localStorage): não reenviar à toa
   const HUB_URL = new URL('/', location.href).href;
+  // aberto dentro do "HUB de Apps" do MAPI (?mapi): sem login do HUB, sem baixar o dados.json, sem service worker; os dados vêm do MAPI por mensagem
+  const MODO_MAPI = window.parent !== window && new URLSearchParams(location.search).has('mapi');
   const CACHE_DADOS = 'co-checklist-dados';        // última cópia (CIFRADA) do dados.json, para abrir sem rede
 
   const G = window.CKAGrafico, K = window.CKACripto, L = window.CKALogica, P = window.CKAPush, C = window.CKACartao, S = window.CKAServicos;
@@ -85,7 +87,26 @@
     try { await caches.delete(CACHE_DADOS); } catch (e) { /* nada a apagar */ }
   }
 
+  // ---------- modo MAPI ----------
+  // O app avisa `co-checklist:pronto` (só o aviso, sem dado algum) e o MAPI responde `co-checklist:dados` com o conteúdo já aberto, a
+  // quem tem o app liberado para a matrícula. Cada atualização automática repete o pedido. Só vale a mensagem da janela pai.
+  let esperaMapi = null;
+  function pedirAoMapi() {
+    clearTimeout(esperaMapi);
+    window.parent.postMessage({ tipo: 'co-checklist:pronto', versao: APP_VERSION }, '*');
+    if (!dados) esperaMapi = setTimeout(() => { if (!dados) telaAviso('O MAPI não respondeu', 'Volte e abra o app de novo pelo HUB de Apps do MAPI.', false); }, 20000);
+  }
+  function receberDoMapi(e) {
+    if (e.source !== window.parent || !e.data || e.data.tipo !== 'co-checklist:dados') return;
+    clearTimeout(esperaMapi);
+    const d = e.data.dados;
+    if (e.data.erro || !d || d.v !== 1) { if (!dados) telaAviso('Não deu para abrir', e.data.erro ? String(e.data.erro) : 'O MAPI mandou dados em formato desconhecido.', false); return; }
+    dados = d; gerado = null; pushCtx = null; cred = null;
+    marcarOffline(false); reiniciarContagem(); desenhar();
+  }
+
   async function carregar() {
+    if (MODO_MAPI) return pedirAoMapi();
     cred = await K.lerCredHub();
     if (!cred) { dados = null; pushCtx = null; sino(); await apagarCopia(); return telaAviso('Entre pelo HUB',
       'Este app abre com o login do HUB dos apps. Entre no HUB com sua matrícula e chave e toque no atalho do Serviços.', true); }
@@ -627,6 +648,7 @@
   // ---------- início ----------
   function iniciar() {
     $('btHub').href = HUB_URL;
+    if (MODO_MAPI) { $('btHub').hidden = true; window.addEventListener('message', receberDoMapi); }
     $('btAtualizar').onclick = () => carregar();
     $('btSino').onclick = () => alternarSino();
     $('btCompartilhar').onclick = () => abrirFolha();
@@ -657,7 +679,7 @@
     carregar();
     setInterval(tique, 1000);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { ultimoCarregar = Date.now(); carregar(); } });
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    if (!MODO_MAPI && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
   window.CKAApp = { APP_VERSION };
