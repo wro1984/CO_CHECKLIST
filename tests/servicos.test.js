@@ -43,7 +43,6 @@ test('robô na manobra: porcentagens por dia, o dia de hoje e o filtro de dias',
   assert.strictEqual(r.dias.length, 3);
   assert.ok(Math.abs(r.hoje.pctRobo - 328 / 562) < 1e-12);                  // % ações do robô
   assert.ok(Math.abs(r.hoje.pctManobras - 158 / 562) < 1e-12);              // % manobras (realizadas pelo robô ÷ total)
-  assert.ok(Math.abs(r.hoje.resolve - 158 / 328) < 1e-12);                  // resolveu sozinho
   assert.strictEqual(r.dias[2].pctRobo, null);                              // dia sem tratativa: sem porcentagem
   assert.deepStrictEqual(S.robo(m, 2).dias.map(d => d.dia), ['2026-11-19', '2026-11-18']);   // filtro: os N dias mais novos
   assert.strictEqual(S.robo(m, 2).disponiveis, 3);
@@ -51,6 +50,25 @@ test('robô na manobra: porcentagens por dia, o dia de hoje e o filtro de dias',
   assert.strictEqual(S.robo({}), null);
   assert.strictEqual(S.robo({ robo: null }), null);                         // a consulta falhou no MAPI: o app avisa
   assert.strictEqual(S.robo(null), null);
+});
+
+test('robô na manobra: êxito = realizadas ÷ finalizadas do robô (falhas e outros motivos contam contra; sem finalização não entra)', () => {
+  const m = { dia: '2026-11-19', robo: [{ dia: '2026-11-19', total: 100, robo: 60, realizadas: 30 }, { dia: '2026-11-18', total: 200, robo: 100, realizadas: 70 }],
+    robo_motivos: [{ dia: '2026-11-19', motivo: 'Manobra realizada', qtd: 30 }, { dia: '2026-11-19', motivo: 'Falha na manobra', qtd: 20 }, { dia: '2026-11-19', motivo: null, qtd: 10 },
+      { dia: '2026-11-18', motivo: 'Manobra realizada', qtd: 70 }, { dia: '2026-11-18', motivo: 'Falha na manobra', qtd: 20 }, { dia: '2026-11-18', motivo: 'Cliente sem sinal', qtd: 10 }] };
+  const r = S.robo(m);
+  assert.ok(Math.abs(r.hoje.exito - 30 / 50) < 1e-12);                      // hoje: 30 de 50 finalizadas (os 10 sem finalização ficam fora)
+  assert.ok(Math.abs(r.exito - 100 / 150) < 1e-12);                         // período: 100 de 150 finalizadas
+  assert.deepStrictEqual(r.motivos.map(x => [x.motivo, x.qtd]), [['Manobra realizada', 100], ['Falha na manobra', 40], ['Cliente sem sinal', 10], [null, 10]]);   // sem finalização por último
+  assert.strictEqual(r.motivos[3].pct, null);
+  assert.ok(Math.abs(r.motivos[1].pct - 40 / 150) < 1e-12);
+  const so7 = S.robo(m, 1);                                                  // filtro de 1 dia: só os motivos de hoje
+  assert.deepStrictEqual(so7.motivos.map(x => x.qtd), [30, 20, 10]);
+  assert.strictEqual(S.EXITO, 'Manobra realizada');
+  // sem os motivos (consulta indisponível), o êxito usa todas as tratativas do robô como base
+  const sem = S.robo({ dia: '2026-11-19', robo: [{ dia: '2026-11-19', total: 100, robo: 60, realizadas: 30 }] });
+  assert.strictEqual(sem.motivos, null);
+  assert.ok(Math.abs(sem.hoje.exito - 0.5) < 1e-12);
 });
 
 const H = { HOJE: { A: [[0, 5], [1, 5], [10, 7]], B: [[1, 1]] }, D7: { A: [[0, 4], [1, 4], [2, 4], [50, 9]], B: [[1, 2]] }, D14: { A: [[0, 1]] } };

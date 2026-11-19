@@ -177,6 +177,13 @@ svg.graf text{fill:var(--ink3);font:9px var(--f-num)}
 .rb-tab .rb-d{font-weight:600}
 .rb-bloco{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
 .rb-chips{margin-bottom:8px}
+.rb-res{margin:2px 0 10px}
+.rb-m{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(40px,1fr) auto auto;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;border-top:1px solid var(--line)}
+.rb-m .nm{color:var(--ink);overflow-wrap:anywhere}
+.rb-m .bar{height:8px;border-radius:5px;background:var(--line);overflow:hidden;display:block}
+.rb-m .bar i{display:block;height:100%;background:var(--ink3)}
+.rb-m.ok .bar i{background:var(--ok,#5f8a12)} .rb-m.falha .bar i{background:var(--bad,#c41a60)} .rb-m.sem{color:var(--ink3)}
+.rb-m b{text-align:right;min-width:32px} .rb-m .pc{min-width:64px;text-align:right;color:var(--ink2);font-variant-numeric:tabular-nums}
 .rb-chips .c{flex:1 1 140px;border-left:3px solid var(--rob)}
 .mtab{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
 .mtab th{font:700 11.5px var(--f-body);color:var(--ink2);text-align:right;padding:4px 3px;border-bottom:1px solid var(--line)}
@@ -234,13 +241,13 @@ footer{font-size:11px;color:var(--ink3);text-align:center;padding:0 12px}
     <p class="folha-msg" id="fcMsg" role="status" aria-live="polite"></p>
   </div>
 </div>
-<script src="config.js?v=1.5.0"></script>
-<script src="cripto.js?v=1.5.0"></script>
-<script src="servicos.js?v=1.5.0"></script>
-<script src="logica.js?v=1.5.0"></script>
-<script src="grafico.js?v=1.5.0"></script>
-<script src="cartao.js?v=1.5.0"></script>
-<script src="push.js?v=1.5.0"></script>
-<script src="app.js?v=1.5.0"></script>
+<script src="config.js?v=1.6.0"></script>
+<script src="cripto.js?v=1.6.0"></script>
+<script src="servicos.js?v=1.6.0"></script>
+<script src="logica.js?v=1.6.0"></script>
+<script src="grafico.js?v=1.6.0"></script>
+<script src="cartao.js?v=1.6.0"></script>
+<script src="push.js?v=1.6.0"></script>
+<script src="app.js?v=1.6.0"></script>
 </body>
 </html>

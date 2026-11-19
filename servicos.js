@@ -38,17 +38,33 @@
   const ehDeHoje = (m, hoje) => !!(m && m.dia && hoje && m.dia === hoje);
 
   // ---------- Robô na Manobra (dia a dia) ----------
-  /** Bloco `robo` do manobra_hoje: [{dia, total, robo, realizadas}] (mais novo primeiro) -> {hoje, dias:[{..., pctRobo, pctManobras, resolve}]}.
-   *  É a consulta da gestão (robô = matrícula RB...). pctRobo = tratativas do robô ÷ total; pctManobras = manobras que o robô realizou ÷ total;
-   *  resolve = realizadas ÷ tratativas do robô. `n` = quantos dias (os mais novos); sem `n`, todos. */
+  const EXITO = 'Manobra realizada';       // a finalização que conta como êxito do robô; qualquer outra (falhas e demais motivos) não
+
+  /** Bloco `robo` (+ `robo_motivos`) do manobra_hoje -> {hoje, dias, motivos, exito, disponiveis}. É a consulta da gestão (robô = matrícula RB...).
+   *  dias: [{dia, total, robo, realizadas, pctRobo, pctManobras, exito}] (os `n` mais novos; sem `n`, todos).
+   *  pctRobo = do robô ÷ total; pctManobras = realizadas pelo robô ÷ total; exito = realizadas ÷ tratativas FINALIZADAS do robô (as que
+   *  terminaram em falha ou em outro motivo contam contra; as sem finalização, ainda em andamento, não entram na conta).
+   *  motivos (dos mesmos dias): [{motivo, qtd, pct}] do maior para o menor, `motivo` nulo = sem finalização (pct nulo); exito do período. */
   function robo(m, n) {
     if (!m || !Array.isArray(m.robo) || !m.robo.length) return null;
     const div = (a, b) => (b > 0 ? a / b : null);
+    const mot = Array.isArray(m.robo_motivos) ? m.robo_motivos : null;
+    const dia1 = (dia, f) => (mot || []).filter(x => x.dia === dia && f(x)).reduce((t, x) => t + (x.qtd || 0), 0);
     const dias = m.robo.slice(0, n > 0 ? n : undefined).map(d => {
       const total = d.total || 0, rb = d.robo || 0, rz = d.realizadas || 0;
-      return { dia: d.dia, total, robo: rb, realizadas: rz, pctRobo: div(rb, total), pctManobras: div(rz, total), resolve: div(rz, rb) };
+      const fin = mot ? dia1(d.dia, x => x.motivo != null) : rb;      // sem os motivos, a base é todas as do robô
+      return { dia: d.dia, total, robo: rb, realizadas: rz, pctRobo: div(rb, total), pctManobras: div(rz, total), exito: div(rz, fin) };
     });
-    return { hoje: dias.find(d => d.dia === m.dia) || null, dias, disponiveis: m.robo.length };
+    let motivos = null, exito = null;
+    if (mot) {
+      const ate = new Set(dias.map(d => d.dia)), por = new Map();
+      mot.forEach(x => { if (ate.has(x.dia)) por.set(x.motivo, (por.get(x.motivo) || 0) + (x.qtd || 0)); });
+      const fin = [...por].filter(([k]) => k != null).reduce((t, [, q]) => t + q, 0);
+      motivos = [...por].map(([motivo, qtd]) => ({ motivo, qtd, pct: motivo == null ? null : div(qtd, fin) }))
+        .sort((a, b) => (a.motivo == null) - (b.motivo == null) || b.qtd - a.qtd);
+      exito = div(por.get(EXITO) || 0, fin);
+    }
+    return { hoje: dias.find(d => d.dia === m.dia) || null, dias, motivos, exito, disponiveis: m.robo.length };
   }
 
   // ---------- Magic ----------
@@ -109,7 +125,7 @@
   /** Percentual de um item do dia ("Carga OK" 40 de 100) em %, ou null. */
   const parteDoTotal = (v, total) => (total > 0 && v != null ? 100 * v / total : null);
 
-  const api = { manobra, manobraPontos, ehDeHoje, robo, categorias, vetor, slotAgora, comparativo, seriesLinhas, rotulosSlots, parteDoTotal, ns,
+  const api = { manobra, manobraPontos, ehDeHoje, robo, EXITO, categorias, vetor, slotAgora, comparativo, seriesLinhas, rotulosSlots, parteDoTotal, ns,
     PERIODOS, NOME_PERIODO, FRENTES_MAGIC };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.CKAServicos = api;
 })(typeof self !== 'undefined' ? self : globalThis);
