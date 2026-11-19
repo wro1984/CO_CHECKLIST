@@ -166,18 +166,18 @@ svg.graf text{fill:var(--ink3);font:9px var(--f-num)}
 .fr-grid>div:first-child{border-top:0}
 .fr-grid .ns b{font-size:16px}
 .chips .c small{font-size:11px;color:var(--ink3)}
-.rb-tab{display:grid;grid-template-columns:minmax(0,.9fr) repeat(5,minmax(0,1fr));font-variant-numeric:tabular-nums;margin-top:4px}
-.rb-tab>div{padding:6px 3px;border-top:1px solid var(--line);text-align:right;font-size:12.5px;white-space:nowrap}
+.rb-topo{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.rb-filtro{display:inline-flex;gap:4px}
+.rb-filtro button{border:1px solid var(--line);background:transparent;color:var(--ink2);border-radius:99px;padding:4px 10px;font:600 12px system-ui;cursor:pointer;width:auto}
+.rb-filtro button[aria-pressed="true"]{background:var(--roxo2);border-color:var(--roxo2);color:#fff}
+.rb-tab{display:grid;grid-template-columns:minmax(0,.8fr) repeat(5,minmax(0,1fr));font-variant-numeric:tabular-nums;margin-top:4px}
+.rb-tab>div{padding:6px 3px;border-top:1px solid var(--line);text-align:right;font-size:12px;white-space:nowrap}
 .rb-tab>div:nth-child(6n+1){text-align:left;color:var(--ink2)}
-.rb-tab .rb-h{font-size:11px;font-weight:700;color:var(--ink2);border-top:0;border-bottom:3px solid var(--rob)}
+.rb-tab .rb-h{font-size:10px;font-weight:700;color:var(--ink2);border-top:0;border-bottom:3px solid var(--rob);white-space:normal;line-height:1.2;vertical-align:bottom}
 .rb-tab .rb-d{font-weight:600}
 .rb-bloco{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
 .rb-chips{margin-bottom:8px}
 .rb-chips .c{flex:1 1 140px;border-left:3px solid var(--rob)}
-.rb-dias summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--ink2);padding:6px 0;list-style:none}
-.rb-dias summary::-webkit-details-marker{display:none}
-.rb-dias summary::before{content:'▸ ';color:var(--ink3)}
-.rb-dias[open] summary::before{content:'▾ '}
 .mtab{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
 .mtab th{font:700 11.5px var(--f-body);color:var(--ink2);text-align:right;padding:4px 3px;border-bottom:1px solid var(--line)}
 .mtab th:first-child,.mtab td:first-child{text-align:left}
@@ -234,13 +234,13 @@ footer{font-size:11px;color:var(--ink3);text-align:center;padding:0 12px}
     <p class="folha-msg" id="fcMsg" role="status" aria-live="polite"></p>
   </div>
 </div>
-<script src="config.js?v=1.4.0"></script>
-<script src="cripto.js?v=1.4.0"></script>
-<script src="servicos.js?v=1.4.0"></script>
-<script src="logica.js?v=1.4.0"></script>
-<script src="grafico.js?v=1.4.0"></script>
-<script src="cartao.js?v=1.4.0"></script>
-<script src="push.js?v=1.4.0"></script>
-<script src="app.js?v=1.4.0"></script>
+<script src="config.js?v=1.5.0"></script>
+<script src="cripto.js?v=1.5.0"></script>
+<script src="servicos.js?v=1.5.0"></script>
+<script src="logica.js?v=1.5.0"></script>
+<script src="grafico.js?v=1.5.0"></script>
+<script src="cartao.js?v=1.5.0"></script>
+<script src="push.js?v=1.5.0"></script>
+<script src="app.js?v=1.5.0"></script>
 </body>
 </html>

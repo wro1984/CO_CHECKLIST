@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '1.4.0';
+  const APP_VERSION = '1.5.0';
   const CHAVE_AUTO = 'co-checklist-auto';          // intervalo escolhido neste aparelho (segundos; 0 = manual)
   const MARCA_PUSH = 'co-checklist-push';          // última inscrição entregue ao MAPI (localStorage): não reenviar à toa
   const HUB_URL = new URL('/', location.href).href;
@@ -40,7 +40,7 @@
   let dados = null, cred = null, gerado = null, pushCtx = null;
   let area = 'agora';
   const abertos = {};                      // ⓘ abertos (sobrevivem ao redesenho)
-  const ESTADO = { frente: null, serieSel: null, acompOff: {}, acompSel: null, acompIni: false, mgFrente: 'vlan', mgCat: null, mgSel: null, manSel: null };
+  const ESTADO = { frente: null, serieSel: null, acompOff: {}, acompSel: null, acompIni: false, mgFrente: 'vlan', mgCat: null, mgSel: null, manSel: null, robDias: 7 };
 
   const INFO = {
     fila: 'Checklists na fila agora: os que aguardam para começar e os que estão em execução.',
@@ -288,19 +288,26 @@
     return b ? `<b>${esc(hh)}</b> · humano ${esc(n(pontos[b.i][1]))} · robô ${esc(n(pontos[b.i][2]))}` : `<b>${esc(hh)}</b> · sem solicitações neste bloco`;
   }
 
-  // robô dentro do card da Manobra: manobras que ele realizou, quanto resolveu sozinho e (recolhida) a tabela dos últimos dias
-  function blocoRobo(R) {
-    const h = R.hoje, p = v => esc(pct(v == null ? null : 100 * v));
+  // robô dentro do card da Manobra: a visão da consulta da gestão (tabela aberta por dia, filtro de 7/14/30 dias) e os quadros de hoje
+  const DIAS_ROBO = [7, 14, 30];
+  const pct2 = v => v == null ? '—' : (Math.round(100 * v * 100) / 100).toFixed(2).replace('.', ',') + '%';
+  function blocoRobo(m) {
+    const R = S.robo(m, ESTADO.robDias);
+    if (!R) return '';
+    const h = R.hoje;
     const chips = h
       ? `<div class="chips rb-chips">
-          <div class="c"><span>Manobras realizadas pelo robô</span><b class="num">${esc(n(h.realizadas))}</b><small>${p(h.pctManobras)} do total</small></div>
-          <div class="c"><span>Resolveu sozinho</span><b class="num">${p(h.resolve)}</b><small>realizadas ÷ solicitações do robô</small></div>
+          <div class="c"><span>Manobras realizadas pelo robô</span><b class="num">${esc(n(h.realizadas))}</b><small>${esc(pct2(h.pctManobras))} do total</small></div>
+          <div class="c"><span>Resolveu sozinho</span><b class="num">${esc(pct2(h.resolve))}</b><small>realizadas ÷ tratativas do robô</small></div>
         </div>`
       : '';
-    const linhas = R.dias.map(d => `<div class="rb-d">${esc(ddmm(d.dia))}</div><div>${esc(n(d.total))}</div><div>${esc(n(d.robo))}</div><div>${p(d.pctRobo)}</div><div>${esc(n(d.realizadas))}</div><div>${p(d.pctManobras)}</div>`).join('');
-    return `<div class="rb-bloco">${chips}<details class="rb-dias"><summary>Robô nos últimos ${esc(R.dias.length)} dias</summary>
+    const opcoes = DIAS_ROBO;
+    const filtro = `<div class="rb-filtro" role="group" aria-label="Período da tabela">${opcoes.map(d => `<button type="button" data-rbdias="${d}" aria-pressed="${ESTADO.robDias === d}">${d} dias</button>`).join('')}</div>`;
+    const linhas = R.dias.map(d => `<div class="rb-d">${esc(ddmm(d.dia))}</div><div>${esc(n(d.total))}</div><div>${esc(n(d.robo))}</div><div>${esc(pct2(d.pctRobo))}</div><div>${esc(n(d.realizadas))}</div><div>${esc(pct2(d.pctManobras))}</div>`).join('');
+    return `<div class="rb-bloco"><div class="rb-topo"><div class="sub-man"><b>Robô na Manobra</b> · últimos ${esc(R.dias.length)} dias</div>${filtro}</div>${chips}
       <div class="rb-tab" role="table" aria-label="Robô na Manobra por dia">
-        <div class="rb-h">Dia</div><div class="rb-h">Solicit.</div><div class="rb-h">Robô</div><div class="rb-h">% robô</div><div class="rb-h">Realiz.</div><div class="rb-h">% realiz.</div>${linhas}</div></details></div>`;
+        <div class="rb-h">Data</div><div class="rb-h">Total tratativas</div><div class="rb-h">Total pelo robô</div><div class="rb-h">% ações do robô</div><div class="rb-h">Manobras realizadas</div><div class="rb-h">% manobras</div>${linhas}</div>
+      <div class="sub-man" style="margin-top:6px">Robô = matrícula RB. % manobras = realizadas pelo robô ÷ total de tratativas. A divisão Humano × Robô acima usa a automação do registro e pode diferir em poucos casos.</div></div>`;
   }
 
   function telaManobra(d) {
@@ -319,9 +326,8 @@
       <div class="r">Espera média</div><div class="c">${esc(tempo(X.espera.h != null || X.espera.r != null ? Math.round(((X.espera.h || 0) * X.h.at + (X.espera.r || 0) * X.r.at) / Math.max(1, X.t.at)) : null))}</div><div class="c">${esc(tempo(X.espera.h))}</div><div class="c">${esc(tempo(X.espera.r))}</div>
       <div class="r">Aguardando agora</div><div class="c">${esc(n(X.pendentes.h + X.pendentes.r))}</div><div class="c">${pend('h')}</div><div class="c">${pend('r')}</div>
       <div class="r">Espera mais antiga</div><div class="c">${esc(tempo(Math.max(X.espera_max_s.h || 0, X.espera_max_s.r || 0) || null))}</div><div class="c">${esc(tempo(X.espera_max_s.h || null))}</div><div class="c">${esc(tempo(X.espera_max_s.r || null))}</div></div>`;
-    const R = S.robo(d.manobra_hoje, X);
     const out = [aviso];
-    out.push(sec(`Manobra · hoje ${ddmm(X.dia)}`, 'manobra', `<div class="sub-man">Lido às ${esc(horaDe(X.gerado_em))} no banco de operação</div>${barra}${grade}${R ? blocoRobo(R) : ''}`));
+    out.push(sec(`Manobra · hoje ${ddmm(X.dia)}`, 'manobra', `<div class="sub-man">Lido às ${esc(horaDe(X.gerado_em))} no banco de operação</div>${barra}${grade}${blocoRobo(d.manobra_hoje) || (d.manobra_hoje && d.manobra_hoje.robo === null ? '<p class="sub-man" role="status">Robô por dia indisponível nesta leitura (o MAPI não conseguiu ler; veja o log dele).</p>' : '')}`));
     const pontos = S.manobraPontos(d.manobra_hoje);
     out.push(sec('Solicitações por bloco de 15 min', 'manobra_serie', pontos.length
       ? `${colunasManobra(pontos)}<div class="leg2"><span><i style="background:var(--hum)"></i>Humano</span><span><i style="background:var(--rob)"></i>Robô</span></div><div class="leit" id="leit-man">${leituraManobra(pontos)}</div>`
@@ -499,6 +505,8 @@
     }
     const gm = ev.target.closest('#graf-mg');
     if (gm) { const r = gm.getBoundingClientRect(), x = (ev.clientX - r.left) / r.width * 340; ESTADO.mgSel = Math.max(0, Math.min(95, Math.round((x - 30) / (334 - 30) * 95))); desenhar(); return; }
+    const rbf = ev.target.closest('[data-rbdias]');
+    if (rbf) { ESTADO.robDias = +rbf.dataset.rbdias || 7; desenhar(); return; }
     const gn = ev.target.closest('#graf-man');
     if (gn && dados && dados.manobra_hoje) {
       const r = gn.getBoundingClientRect();
