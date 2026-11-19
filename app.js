@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '1.4.0';
+  const APP_VERSION = '1.4.1';
   const CHAVE_AUTO = 'co-checklist-auto';          // intervalo escolhido neste aparelho (segundos; 0 = manual)
   const MARCA_PUSH = 'co-checklist-push';          // última inscrição entregue ao MAPI (localStorage): não reenviar à toa
   const HUB_URL = new URL('/', location.href).href;
@@ -321,7 +321,7 @@
       <div class="r">Espera mais antiga</div><div class="c">${esc(tempo(Math.max(X.espera_max_s.h || 0, X.espera_max_s.r || 0) || null))}</div><div class="c">${esc(tempo(X.espera_max_s.h || null))}</div><div class="c">${esc(tempo(X.espera_max_s.r || null))}</div></div>`;
     const R = S.robo(d.manobra_hoje, X);
     const out = [aviso];
-    out.push(sec(`Manobra · hoje ${ddmm(X.dia)}`, 'manobra', `<div class="sub-man">Lido às ${esc(horaDe(X.gerado_em))} no banco de operação</div>${barra}${grade}${R ? blocoRobo(R) : ''}`));
+    out.push(sec(`Manobra · hoje ${ddmm(X.dia)}`, 'manobra', `<div class="sub-man">Lido às ${esc(horaDe(X.gerado_em))} no banco de operação</div>${barra}${grade}${R ? blocoRobo(R) : (d.manobra_hoje && d.manobra_hoje.robo === null ? '<p class="sub-man" role="status">Robô por dia indisponível nesta leitura (o MAPI não conseguiu ler; veja o log dele).</p>' : '')}`));
     const pontos = S.manobraPontos(d.manobra_hoje);
     out.push(sec('Solicitações por bloco de 15 min', 'manobra_serie', pontos.length
       ? `${colunasManobra(pontos)}<div class="leg2"><span><i style="background:var(--hum)"></i>Humano</span><span><i style="background:var(--rob)"></i>Robô</span></div><div class="leit" id="leit-man">${leituraManobra(pontos)}</div>`

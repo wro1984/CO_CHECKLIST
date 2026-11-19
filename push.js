@@ -11,7 +11,7 @@
 (function (root) {
   'use strict';
 
-  const VERSAO = '1.4.0';
+  const VERSAO = '1.4.1';
   const CAIXA = 'https://gentle-band-9798.wro-1984.workers.dev';   // pública (a mesma do config.js do Problemas Sistêmicos)
   const enc = new TextEncoder();
   const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
