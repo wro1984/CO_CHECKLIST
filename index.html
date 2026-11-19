@@ -171,6 +171,13 @@ svg.graf text{fill:var(--ink3);font:9px var(--f-num)}
 .rb-tab>div:nth-child(6n+1){text-align:left;color:var(--ink2)}
 .rb-tab .rb-h{font-size:11px;font-weight:700;color:var(--ink2);border-top:0;border-bottom:3px solid var(--rob)}
 .rb-tab .rb-d{font-weight:600}
+.rb-bloco{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.rb-chips{margin-bottom:8px}
+.rb-chips .c{flex:1 1 140px;border-left:3px solid var(--rob)}
+.rb-dias summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--ink2);padding:6px 0;list-style:none}
+.rb-dias summary::-webkit-details-marker{display:none}
+.rb-dias summary::before{content:'▸ ';color:var(--ink3)}
+.rb-dias[open] summary::before{content:'▾ '}
 .mtab{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
 .mtab th{font:700 11.5px var(--f-body);color:var(--ink2);text-align:right;padding:4px 3px;border-bottom:1px solid var(--line)}
 .mtab th:first-child,.mtab td:first-child{text-align:left}

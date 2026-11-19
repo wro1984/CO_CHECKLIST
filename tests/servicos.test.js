@@ -46,6 +46,12 @@ test('robô na manobra: porcentagens por dia e o dia de hoje', () => {
   assert.ok(Math.abs(r.hoje.resolve - 152 / 319) < 1e-12);                  // o robô resolveu sozinho 47,6% das dele
   assert.strictEqual(r.dias[2].pctRobo, null);                              // dia sem tratativa: sem porcentagem
   assert.strictEqual(S.robo({ dia: 'x', robo: [{ dia: 'y', total: 1, robo: 1, realizadas: 1 }] }).hoje, null);   // sem o dia de hoje na lista
+  // com o resultado do card, o total e o do robô de HOJE são os dele (sem divergir); os outros dias vêm do bloco
+  const x = S.manobra({ dia: '2026-11-19', h: [221, 218, 45], r: [322, 322, 322] });
+  const c = S.robo(m, x);
+  assert.deepStrictEqual([c.hoje.total, c.hoje.robo, c.hoje.realizadas], [543, 322, 152]);
+  assert.ok(Math.abs(c.hoje.pctRobo - 322 / 543) < 1e-12);                  // 59,3%, o mesmo da barra do card
+  assert.deepStrictEqual([c.dias[1].total, c.dias[1].robo], [1280, 660]);
   assert.strictEqual(S.robo({}), null);
   assert.strictEqual(S.robo(null), null);
 });

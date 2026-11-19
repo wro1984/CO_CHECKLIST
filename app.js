@@ -52,8 +52,7 @@
     acomp: 'Execuções do dia por frente, em blocos de 15 min (conta tudo do dia, não só as finalizadas). Toque no gráfico para ver o horário; toque na legenda para esconder uma linha.',
     banco: 'Conexões abertas agora no banco e o limite. A divisão entre ativas e ociosas só aparece quando o usuário de leitura enxerga todas as sessões.',
     eventos: 'Um evento abre quando uma medida (CPU, memória, disco, conexões dos bancos, situação do coletor) fica acima do limite por algumas coletas seguidas, e fecha quando volta ao normal. O histórico guarda os últimos 7 dias. Quem liga o sino recebe aviso na abertura e quando volta ao normal.',
-    manobra: 'A Manobra de hoje, direto do banco de operação, com a mesma regra do NS: o dia é o da solicitação; "em N min" são as atendidas em até N minutos; NS = em N min ÷ atendidas. Humano = atendimento de uma pessoa; robô = automação. "Aguardando agora" são as solicitações de hoje ainda sem atribuição.',
-    manobra_robo: 'O robô na Manobra, do banco de operação: tratativas do dia, as feitas pelo robô (matrícula RB...) e as que o robô finalizou como "Manobra realizada". % robô = tratativas do robô ÷ total; % realizadas = manobras realizadas pelo robô ÷ total; resolveu sozinho = realizadas ÷ tratativas do robô. A definição de robô aqui é a da matrícula, e pode diferir um pouco da divisão humano × robô acima.',
+    manobra: 'A Manobra de hoje, direto do banco de operação, com a mesma regra do NS: o dia é o da solicitação; "em N min" são as atendidas em até N minutos; NS = em N min ÷ atendidas. Humano = atendimento de uma pessoa; robô = automação. "Manobras realizadas pelo robô" = as que o robô finalizou como "Manobra realizada" (% do total de solicitações do dia); "Resolveu sozinho" = realizadas ÷ solicitações do robô. "Aguardando agora" são as solicitações de hoje ainda sem atribuição.',
     manobra_serie: 'Solicitações de hoje por bloco de 15 min, empilhadas (humano embaixo, robô em cima). Toque numa coluna para ver o horário.',
     mg_vlan: 'Execuções do Magic de hoje (VLAN) por resultado: corrigido, sem falhas ou falha na execução. O total conta também as demais (duplicado, já registrado).',
     mg_psa: 'Validações de carga do PSA de hoje, por situação (as mesmas contas do dashboard MAGIC do Grafana). Um mesmo registro pode contar em mais de uma linha.',
@@ -289,20 +288,19 @@
     return b ? `<b>${esc(hh)}</b> · humano ${esc(n(pontos[b.i][1]))} · robô ${esc(n(pontos[b.i][2]))}` : `<b>${esc(hh)}</b> · sem solicitações neste bloco`;
   }
 
-  function cardsRobo(R) {
-    const h = R.hoje;
+  // robô dentro do card da Manobra: manobras que ele realizou, quanto resolveu sozinho e (recolhida) a tabela dos últimos dias
+  function blocoRobo(R) {
+    const h = R.hoje, p = v => esc(pct(v == null ? null : 100 * v));
     const chips = h
-      ? `<div class="chips">
-          <div class="c"><span>Tratativas hoje</span><b class="num">${esc(n(h.total))}</b></div>
-          <div class="c"><span>Pelo robô</span><b class="num">${esc(n(h.robo))}</b><small>${esc(pct(h.pctRobo == null ? null : 100 * h.pctRobo))} do total</small></div>
-          <div class="c"><span>Manobras realizadas pelo robô</span><b class="num">${esc(n(h.realizadas))}</b><small>${esc(pct(h.pctManobras == null ? null : 100 * h.pctManobras))} do total</small></div>
-          <div class="c"><span>Resolveu sozinho</span><b class="num">${esc(pct(h.resolve == null ? null : 100 * h.resolve))}</b><small>realizadas ÷ tratativas do robô</small></div>
+      ? `<div class="chips rb-chips">
+          <div class="c"><span>Manobras realizadas pelo robô</span><b class="num">${esc(n(h.realizadas))}</b><small>${p(h.pctManobras)} do total</small></div>
+          <div class="c"><span>Resolveu sozinho</span><b class="num">${p(h.resolve)}</b><small>realizadas ÷ solicitações do robô</small></div>
         </div>`
-      : '<p class="vazio">Ainda não há tratativas hoje.</p>';
-    const linhas = R.dias.map(d => `<div class="rb-d">${esc(ddmm(d.dia))}</div><div>${esc(n(d.total))}</div><div>${esc(n(d.robo))}</div><div>${esc(pct(d.pctRobo == null ? null : 100 * d.pctRobo))}</div><div>${esc(n(d.realizadas))}</div><div>${esc(pct(d.pctManobras == null ? null : 100 * d.pctManobras))}</div>`).join('');
-    const tab = `<div class="rb-tab" role="table" aria-label="Robô na Manobra por dia">
-        <div class="rb-h">Dia</div><div class="rb-h">Tratativas</div><div class="rb-h">Robô</div><div class="rb-h">% robô</div><div class="rb-h">Realizadas</div><div class="rb-h">% realiz.</div>${linhas}</div>`;
-    return `${chips}<div class="sub-man" style="margin-top:10px">Últimos ${esc(R.dias.length)} dias</div>${tab}`;
+      : '';
+    const linhas = R.dias.map(d => `<div class="rb-d">${esc(ddmm(d.dia))}</div><div>${esc(n(d.total))}</div><div>${esc(n(d.robo))}</div><div>${p(d.pctRobo)}</div><div>${esc(n(d.realizadas))}</div><div>${p(d.pctManobras)}</div>`).join('');
+    return `<div class="rb-bloco">${chips}<details class="rb-dias"><summary>Robô nos últimos ${esc(R.dias.length)} dias</summary>
+      <div class="rb-tab" role="table" aria-label="Robô na Manobra por dia">
+        <div class="rb-h">Dia</div><div class="rb-h">Solicit.</div><div class="rb-h">Robô</div><div class="rb-h">% robô</div><div class="rb-h">Realiz.</div><div class="rb-h">% realiz.</div>${linhas}</div></details></div>`;
   }
 
   function telaManobra(d) {
@@ -321,10 +319,9 @@
       <div class="r">Espera média</div><div class="c">${esc(tempo(X.espera.h != null || X.espera.r != null ? Math.round(((X.espera.h || 0) * X.h.at + (X.espera.r || 0) * X.r.at) / Math.max(1, X.t.at)) : null))}</div><div class="c">${esc(tempo(X.espera.h))}</div><div class="c">${esc(tempo(X.espera.r))}</div>
       <div class="r">Aguardando agora</div><div class="c">${esc(n(X.pendentes.h + X.pendentes.r))}</div><div class="c">${pend('h')}</div><div class="c">${pend('r')}</div>
       <div class="r">Espera mais antiga</div><div class="c">${esc(tempo(Math.max(X.espera_max_s.h || 0, X.espera_max_s.r || 0) || null))}</div><div class="c">${esc(tempo(X.espera_max_s.h || null))}</div><div class="c">${esc(tempo(X.espera_max_s.r || null))}</div></div>`;
+    const R = S.robo(d.manobra_hoje, X);
     const out = [aviso];
-    out.push(sec(`Manobra · hoje ${ddmm(X.dia)}`, 'manobra', `<div class="sub-man">Lido às ${esc(horaDe(X.gerado_em))} no banco de operação</div>${barra}${grade}`));
-    const R = S.robo(d.manobra_hoje);
-    if (R) out.push(sec('Robô na Manobra', 'manobra_robo', cardsRobo(R)));
+    out.push(sec(`Manobra · hoje ${ddmm(X.dia)}`, 'manobra', `<div class="sub-man">Lido às ${esc(horaDe(X.gerado_em))} no banco de operação</div>${barra}${grade}${R ? blocoRobo(R) : ''}`));
     const pontos = S.manobraPontos(d.manobra_hoje);
     out.push(sec('Solicitações por bloco de 15 min', 'manobra_serie', pontos.length
       ? `${colunasManobra(pontos)}<div class="leg2"><span><i style="background:var(--hum)"></i>Humano</span><span><i style="background:var(--rob)"></i>Robô</span></div><div class="leit" id="leit-man">${leituraManobra(pontos)}</div>`
