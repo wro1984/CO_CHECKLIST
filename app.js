@@ -298,20 +298,15 @@
     const chips = h
       ? `<div class="chips rb-chips">
           <div class="c"><span>Manobras realizadas pelo robô</span><b class="num">${esc(n(h.realizadas))}</b><small>${esc(pct2(h.pctManobras))} do total</small></div>
-          <div class="c"><span>Êxito do robô hoje</span><b class="num">${esc(pct2(h.exito))}</b><small>realizadas ÷ tratativas finalizadas do robô</small></div>
         </div>`
       : '';
     const opcoes = DIAS_ROBO;
     const filtro = `<div class="rb-filtro" role="group" aria-label="Período da tabela">${opcoes.map(d => `<button type="button" data-rbdias="${d}" aria-pressed="${ESTADO.robDias === d}">${d} dias</button>`).join('')}</div>`;
-    const res = R.motivos && R.motivos.length ? `<div class="rb-res"><div class="sub-man"><b>Como terminaram as tratativas do robô</b> · últimos ${esc(R.dias.length)} dias · êxito ${esc(pct2(R.exito))}</div>
-        ${R.motivos.map(x => `<div class="rb-m${x.motivo === S.EXITO ? ' ok' : x.motivo == null ? ' sem' : ' falha'}"><span class="nm">${esc(x.motivo == null ? 'Sem finalização' : x.motivo)}</span>
-          <span class="bar"><i style="width:${x.pct == null ? 0 : (100 * x.pct).toFixed(1)}%"></i></span><b class="num">${esc(n(x.qtd))}</b><span class="pc">${x.pct == null ? 'não entra' : esc(pct2(x.pct))}</span></div>`).join('')}
-      </div>` : '';
     const linhas = R.dias.map(d => `<div class="rb-d">${esc(ddmm(d.dia))}</div><div>${esc(n(d.total))}</div><div>${esc(n(d.robo))}</div><div>${esc(pct2(d.pctRobo))}</div><div>${esc(n(d.realizadas))}</div><div>${esc(pct2(d.pctManobras))}</div>`).join('');
-    return `<div class="rb-bloco"><div class="rb-topo"><div class="sub-man"><b>Robô na Manobra</b> · últimos ${esc(R.dias.length)} dias</div>${filtro}</div>${chips}${res}
+    return `<div class="rb-bloco"><div class="rb-topo"><div class="sub-man"><b>Robô na Manobra</b> · últimos ${esc(R.dias.length)} dias</div>${filtro}</div>${chips}
       <div class="rb-tab" role="table" aria-label="Robô na Manobra por dia">
         <div class="rb-h">Data</div><div class="rb-h">Total tratativas</div><div class="rb-h">Total pelo robô</div><div class="rb-h">% ações do robô</div><div class="rb-h">Manobras realizadas</div><div class="rb-h">% manobras</div>${linhas}</div>
-      <div class="sub-man" style="margin-top:6px">Robô = matrícula RB. % manobras = realizadas pelo robô ÷ total de tratativas. Êxito = "${esc(S.EXITO)}" ÷ tratativas finalizadas do robô: falhas e outros motivos contam contra; as sem finalização (em andamento) não entram. A divisão Humano × Robô acima usa a automação do registro e pode diferir em poucos casos.</div></div>`;
+      <div class="sub-man" style="margin-top:6px">Robô = matrícula RB. % manobras = realizadas pelo robô ÷ total de tratativas. A divisão Humano × Robô acima usa a automação do registro e pode diferir em poucos casos.</div></div>`;
   }
 
   function telaManobra(d) {
