@@ -37,6 +37,19 @@ test('manobra: pontos do gráfico (humano, robô por bloco) e o dado é de hoje?
   assert.strictEqual(S.ehDeHoje(M, '2026-11-13'), false);
 });
 
+test('robô na manobra: porcentagens por dia e o dia de hoje', () => {
+  const m = { dia: '2026-11-19', robo: [{ dia: '2026-11-19', total: 535, robo: 319, realizadas: 152 }, { dia: '2026-11-18', total: 1280, robo: 660, realizadas: 302 }, { dia: '2026-11-15', total: 0, robo: 0, realizadas: 0 }] };
+  const r = S.robo(m);
+  assert.strictEqual(r.dias.length, 3);
+  assert.ok(Math.abs(r.hoje.pctRobo - 319 / 535) < 1e-12);                  // 59,6%
+  assert.ok(Math.abs(r.hoje.pctManobras - 152 / 535) < 1e-12);              // 28,4% do total
+  assert.ok(Math.abs(r.hoje.resolve - 152 / 319) < 1e-12);                  // o robô resolveu sozinho 47,6% das dele
+  assert.strictEqual(r.dias[2].pctRobo, null);                              // dia sem tratativa: sem porcentagem
+  assert.strictEqual(S.robo({ dia: 'x', robo: [{ dia: 'y', total: 1, robo: 1, realizadas: 1 }] }).hoje, null);   // sem o dia de hoje na lista
+  assert.strictEqual(S.robo({}), null);
+  assert.strictEqual(S.robo(null), null);
+});
+
 const H = { HOJE: { A: [[0, 5], [1, 5], [10, 7]], B: [[1, 1]] }, D7: { A: [[0, 4], [1, 4], [2, 4], [50, 9]], B: [[1, 2]] }, D14: { A: [[0, 1]] } };
 
 test('magic: categorias e vetores de 96 blocos', () => {

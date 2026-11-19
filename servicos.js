@@ -37,6 +37,19 @@
   /** O dado é de hoje? (o bloco guarda o dia do .242; se o app abriu uma cópia velha, avisa). `hoje` = 'AAAA-MM-DD' do aparelho. */
   const ehDeHoje = (m, hoje) => !!(m && m.dia && hoje && m.dia === hoje);
 
+  // ---------- Robô na Manobra (dia a dia) ----------
+  /** Bloco `robo` do manobra_hoje: [{dia, total, robo, realizadas}] (mais novo primeiro) -> {hoje, dias:[{..., pctRobo, pctManobras, resolve}]}.
+   *  pctRobo = tratativas do robô ÷ total; pctManobras = manobras que o robô realizou ÷ total; resolve = realizadas ÷ tratativas do robô. */
+  function robo(m) {
+    if (!m || !Array.isArray(m.robo) || !m.robo.length) return null;
+    const div = (a, b) => (b > 0 ? a / b : null);
+    const dias = m.robo.map(d => {
+      const total = d.total || 0, rb = d.robo || 0, rz = d.realizadas || 0;
+      return { dia: d.dia, total, robo: rb, realizadas: rz, pctRobo: div(rb, total), pctManobras: div(rz, total), resolve: div(rz, rb) };
+    });
+    return { hoje: dias.find(d => d.dia === m.dia) || null, dias };
+  }
+
   // ---------- Magic ----------
   const PERIODOS = ['HOJE', 'D7', 'D14', 'D21'];
   const NOME_PERIODO = { HOJE: 'Hoje', D7: 'Há 7 dias', D14: 'Há 14 dias', D21: 'Há 21 dias' };
@@ -95,7 +108,7 @@
   /** Percentual de um item do dia ("Carga OK" 40 de 100) em %, ou null. */
   const parteDoTotal = (v, total) => (total > 0 && v != null ? 100 * v / total : null);
 
-  const api = { manobra, manobraPontos, ehDeHoje, categorias, vetor, slotAgora, comparativo, seriesLinhas, rotulosSlots, parteDoTotal, ns,
+  const api = { manobra, manobraPontos, ehDeHoje, robo, categorias, vetor, slotAgora, comparativo, seriesLinhas, rotulosSlots, parteDoTotal, ns,
     PERIODOS, NOME_PERIODO, FRENTES_MAGIC };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.CKAServicos = api;
 })(typeof self !== 'undefined' ? self : globalThis);
