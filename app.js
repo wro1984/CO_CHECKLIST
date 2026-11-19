@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '1.5.0';
+  const APP_VERSION = '1.6.0';
   const CHAVE_AUTO = 'co-checklist-auto';          // intervalo escolhido neste aparelho (segundos; 0 = manual)
   const MARCA_PUSH = 'co-checklist-push';          // última inscrição entregue ao MAPI (localStorage): não reenviar à toa
   const HUB_URL = new URL('/', location.href).href;
@@ -298,7 +298,6 @@
     const chips = h
       ? `<div class="chips rb-chips">
           <div class="c"><span>Manobras realizadas pelo robô</span><b class="num">${esc(n(h.realizadas))}</b><small>${esc(pct2(h.pctManobras))} do total</small></div>
-          <div class="c"><span>Resolveu sozinho</span><b class="num">${esc(pct2(h.resolve))}</b><small>realizadas ÷ tratativas do robô</small></div>
         </div>`
       : '';
     const opcoes = DIAS_ROBO;
