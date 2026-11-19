@@ -37,22 +37,19 @@ test('manobra: pontos do gráfico (humano, robô por bloco) e o dado é de hoje?
   assert.strictEqual(S.ehDeHoje(M, '2026-11-13'), false);
 });
 
-test('robô na manobra: porcentagens por dia e o dia de hoje', () => {
-  const m = { dia: '2026-11-19', robo: [{ dia: '2026-11-19', total: 535, robo: 319, realizadas: 152 }, { dia: '2026-11-18', total: 1280, robo: 660, realizadas: 302 }, { dia: '2026-11-15', total: 0, robo: 0, realizadas: 0 }] };
+test('robô na manobra: porcentagens por dia, o dia de hoje e o filtro de dias', () => {
+  const m = { dia: '2026-11-19', robo: [{ dia: '2026-11-19', total: 562, robo: 328, realizadas: 158 }, { dia: '2026-11-18', total: 1280, robo: 663, realizadas: 304 }, { dia: '2026-11-15', total: 0, robo: 0, realizadas: 0 }] };
   const r = S.robo(m);
   assert.strictEqual(r.dias.length, 3);
-  assert.ok(Math.abs(r.hoje.pctRobo - 319 / 535) < 1e-12);                  // 59,6%
-  assert.ok(Math.abs(r.hoje.pctManobras - 152 / 535) < 1e-12);              // 28,4% do total
-  assert.ok(Math.abs(r.hoje.resolve - 152 / 319) < 1e-12);                  // o robô resolveu sozinho 47,6% das dele
+  assert.ok(Math.abs(r.hoje.pctRobo - 328 / 562) < 1e-12);                  // % ações do robô
+  assert.ok(Math.abs(r.hoje.pctManobras - 158 / 562) < 1e-12);              // % manobras (realizadas pelo robô ÷ total)
+  assert.ok(Math.abs(r.hoje.resolve - 158 / 328) < 1e-12);                  // resolveu sozinho
   assert.strictEqual(r.dias[2].pctRobo, null);                              // dia sem tratativa: sem porcentagem
+  assert.deepStrictEqual(S.robo(m, 2).dias.map(d => d.dia), ['2026-11-19', '2026-11-18']);   // filtro: os N dias mais novos
+  assert.strictEqual(S.robo(m, 2).disponiveis, 3);
   assert.strictEqual(S.robo({ dia: 'x', robo: [{ dia: 'y', total: 1, robo: 1, realizadas: 1 }] }).hoje, null);   // sem o dia de hoje na lista
-  // com o resultado do card, o total e o do robô de HOJE são os dele (sem divergir); os outros dias vêm do bloco
-  const x = S.manobra({ dia: '2026-11-19', h: [221, 218, 45], r: [322, 322, 322] });
-  const c = S.robo(m, x);
-  assert.deepStrictEqual([c.hoje.total, c.hoje.robo, c.hoje.realizadas], [543, 322, 152]);
-  assert.ok(Math.abs(c.hoje.pctRobo - 322 / 543) < 1e-12);                  // 59,3%, o mesmo da barra do card
-  assert.deepStrictEqual([c.dias[1].total, c.dias[1].robo], [1280, 660]);
   assert.strictEqual(S.robo({}), null);
+  assert.strictEqual(S.robo({ robo: null }), null);                         // a consulta falhou no MAPI: o app avisa
   assert.strictEqual(S.robo(null), null);
 });
 

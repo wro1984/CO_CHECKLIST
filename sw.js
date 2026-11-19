@@ -1,7 +1,7 @@
 /* Serviços — service worker (escopo /CO_CHECKLIST/).
  * Outros apps moram no mesmo endereço (wro1984.github.io): este só mexe nos caches que começam com "co-checklist-v".
  * O dados.json NÃO passa por aqui: vem do Worker da Cloudflare (outro endereço) e o app guarda a cópia cifrada sozinho. */
-const VERSION = '1.4.1';
+const VERSION = '1.5.0';
 const CACHE = 'co-checklist-v' + VERSION;
 const CORE = ['./', 'index.html', 'app.js', 'cripto.js', 'servicos.js', 'logica.js', 'grafico.js', 'cartao.js', 'push.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 

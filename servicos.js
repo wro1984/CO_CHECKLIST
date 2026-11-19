@@ -39,17 +39,16 @@
 
   // ---------- Robô na Manobra (dia a dia) ----------
   /** Bloco `robo` do manobra_hoje: [{dia, total, robo, realizadas}] (mais novo primeiro) -> {hoje, dias:[{..., pctRobo, pctManobras, resolve}]}.
-   *  pctRobo = tratativas do robô ÷ total; pctManobras = manobras que o robô realizou ÷ total; resolve = realizadas ÷ tratativas do robô.
-   *  Com `x` (o resultado de manobra(m)), o total e o do robô de HOJE vêm do próprio card (iguais aos dele); só as realizadas vêm do bloco. */
-  function robo(m, x) {
+   *  É a consulta da gestão (robô = matrícula RB...). pctRobo = tratativas do robô ÷ total; pctManobras = manobras que o robô realizou ÷ total;
+   *  resolve = realizadas ÷ tratativas do robô. `n` = quantos dias (os mais novos); sem `n`, todos. */
+  function robo(m, n) {
     if (!m || !Array.isArray(m.robo) || !m.robo.length) return null;
     const div = (a, b) => (b > 0 ? a / b : null);
-    const dias = m.robo.map(d => {
-      const ehHoje = !!(x && d.dia === m.dia);
-      const total = ehHoje ? x.t.vol : (d.total || 0), rb = ehHoje ? x.r.vol : (d.robo || 0), rz = d.realizadas || 0;
+    const dias = m.robo.slice(0, n > 0 ? n : undefined).map(d => {
+      const total = d.total || 0, rb = d.robo || 0, rz = d.realizadas || 0;
       return { dia: d.dia, total, robo: rb, realizadas: rz, pctRobo: div(rb, total), pctManobras: div(rz, total), resolve: div(rz, rb) };
     });
-    return { hoje: dias.find(d => d.dia === m.dia) || null, dias };
+    return { hoje: dias.find(d => d.dia === m.dia) || null, dias, disponiveis: m.robo.length };
   }
 
   // ---------- Magic ----------
